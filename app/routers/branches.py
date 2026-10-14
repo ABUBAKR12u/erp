@@ -29,5 +29,4 @@ async def list_branches(db:MyDb , name:str=None):
     if name:
         result = await db.execute(select(Branch).where(Branch.name.ilike(f"%{name}%")))
 
-
     return result.scalars().all()

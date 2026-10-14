@@ -5,6 +5,7 @@ from sqlalchemy import pool
 from app.model.branches import Branch
 from app.model.rooms import Room
 from app.database.Base import Base
+from app.model.employees import Employees
 from alembic import context
 
 # this is the Alembic Config object, which provides
