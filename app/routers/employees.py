@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 from typing import List
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException , Depends
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 
 from app.database.Base import MyDb
@@ -9,7 +10,7 @@ from app.model.branches import Branch
 from app.model.employees import Employees
 from app.scheme.employees import EmployeesCreate, EmployeesResponse, EmployeesUpdate
 from app.utils.checker import check_ident
-from app.utils.security import hash_password
+from app.utils.security import hash_password, verify_password, create_access_token, create_refresh_token
 
 router = APIRouter(
     prefix="/employees",
@@ -82,3 +83,5 @@ async def delete_employee(employee_id: int, db:MyDb):
 
     await db.commit()
     return {"msg":"Employee deleted successfully"}
+
+
