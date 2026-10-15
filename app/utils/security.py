@@ -7,15 +7,15 @@ from dotenv import load_dotenv
 import os
 from passlib.context import CryptContext
 from sqlalchemy import select
-from sqlalchemy.sql.functions import current_user
+from app.utils.config import settings
 
 from app.database.Base import MyDb
 from app.model.employees import Employees
 
 load_dotenv()
 
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM= os.getenv("ALGORITHM")
+SECRET_KEY = settings.SECRET_KEY
+ALGORITHM= settings.ALGORITHM
 
 pwd_context = CryptContext(schemes=["argon2"])
 
