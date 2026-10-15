@@ -8,6 +8,9 @@ from dotenv import load_dotenv
 import os
 from passlib.context import CryptContext
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
+from app.model.employee_roles import EmployeeRole
 from app.utils.config import settings
 
 from app.database.Base import MyDb
@@ -71,8 +74,18 @@ async def get_current_user(db:MyDb,token: str = Depends(bearer)):
             raise HTTPException(401,"User not found")
     except JWTError:
         raise HTTPException(401,"Token is invalid")
-    result =await db.execute(select(Employees.id).where(Employees.id == user_id))
+    result =await db.execute(select(Employees).where(Employees.id == user_id).options(selectinload(Employees.employee_role).selectinload(EmployeeRole.role)))
     user = result.scalars().first()
     if not user:
         raise HTTPException(404,"User not found")
     return user
+
+
+def require_role(*allow_roles):
+    async def checker(current_user=(Depends(get_current_user))):
+        user_roles = [er.role.code for er in current_user.employee_role]
+        if not any(role in allow_roles for role in user_roles):
+            raise HTTPException(403,"Permission Denied")
+        return current_user
+
+    return checker

@@ -1,5 +1,5 @@
 from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.Base import Base
 
 
@@ -10,3 +10,5 @@ class Roles(Base):
     code: Mapped[str] = mapped_column(String(40), unique=True)
     name: Mapped[str] = mapped_column(String(80))
     is_system: Mapped[bool] = mapped_column(default=False)
+
+    employee_role: Mapped[list["EmployeeRole"]] = relationship("EmployeeRole", back_populates="role")

@@ -1,5 +1,10 @@
 from datetime import date, datetime
+from typing import List
+
 from pydantic import BaseModel
+
+from app.scheme.employee_roles import EmployeeRolesResponse
+
 
 class EmployeesBase(BaseModel):
     branch_id: int
@@ -12,6 +17,7 @@ class EmployeesBase(BaseModel):
     photo_url: str
     position: str
     hired_at: date
+    employee_role: List[EmployeeRolesResponse] = []
 
 class EmployeesCreate(EmployeesBase):
     pass

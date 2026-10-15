@@ -1,7 +1,9 @@
 from datetime import date, datetime
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.Base import Base
+from app.model.employee_roles import EmployeeRole
+
 
 class Employees(Base):
     __tablename__ = "employees"
@@ -20,3 +22,5 @@ class Employees(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    employee_role: Mapped[list["EmployeeRole"]] = relationship("EmployeeRole", back_populates="employee")
