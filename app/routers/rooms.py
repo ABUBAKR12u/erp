@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 
 from app.database.Base import MyDb
@@ -8,11 +8,12 @@ from app.model.branches import Branch
 from app.model.rooms import Room
 from app.scheme.rooms import RoomAdd, RoomResponse
 from app.utils.checker import check_ident
+from app.utils.security import get_current_user
 
 router = APIRouter(tags=["Rooms"], prefix="/rooms")
 
 @router.post("/")
-async def add_room(room: RoomAdd , db: MyDb):
+async def add_room(room: RoomAdd , db: MyDb , current_user=Depends(get_current_user)):
     await check_ident(db , Branch , room.branch_id)
     obj = Room(
         **room.model_dump()

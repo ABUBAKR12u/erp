@@ -6,6 +6,8 @@ from app.model.branches import Branch
 from app.model.rooms import Room
 from app.database.Base import Base
 from app.model.employees import Employees
+from app.model.employee_roles import EmployeeRole
+from app.model.roles import Roles
 from alembic import context
 
 # this is the Alembic Config object, which provides

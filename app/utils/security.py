@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from encodings.punycode import selective_find
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Depends
+from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, ExpiredSignatureError, JWTError
 from dotenv import load_dotenv
 import os
@@ -58,3 +59,20 @@ async def create_new_token(token:str, db):
         raise HTTPException(401,"Token expired")
     except JWTError:
         raise HTTPException(401,"Token is invalid")
+
+
+bearer = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+async def get_current_user(db:MyDb,token: str = Depends(bearer)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("user_id")
+        if user_id is None:
+            raise HTTPException(401,"User not found")
+    except JWTError:
+        raise HTTPException(401,"Token is invalid")
+    result =await db.execute(select(Employees.id).where(Employees.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(404,"User not found")
+    return user
