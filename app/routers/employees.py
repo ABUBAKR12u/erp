@@ -10,7 +10,8 @@ from app.model.branches import Branch
 from app.model.employees import Employees
 from app.scheme.employees import EmployeesCreate, EmployeesResponse, EmployeesUpdate
 from app.utils.checker import check_ident
-from app.utils.security import hash_password, verify_password, create_access_token, create_refresh_token
+from app.utils.security import hash_password, verify_password, create_access_token, create_refresh_token, require_role, \
+    get_current_user
 
 router = APIRouter(
     prefix="/employees",
@@ -18,7 +19,7 @@ router = APIRouter(
 )
 
 @router.post("/")
-async def add_employees(employee: EmployeesCreate , db:MyDb):
+async def add_employees(employee: EmployeesCreate , db:MyDb , current_user=Depends(require_role("admin" ,"boss"))):
     result= await db.execute(select(Employees).where(Employees.phone==employee.phone))
     user= result.scalars().first()
     if user:
@@ -33,7 +34,7 @@ async def add_employees(employee: EmployeesCreate , db:MyDb):
     return {"msg":"Employee created successfully"}
 
 @router.get("/", response_model=List[EmployeesResponse])
-async def list_employees(db:MyDb, name:str=None, is_active:bool=True):
+async def list_employees(db:MyDb, name:str=None, is_active:bool=True , current_user=Depends(require_role("admin","boss"))):
     result= select(Employees)
     if name:
         result= result.where(Employees.first_name.ilike(f"%{name}%"))
@@ -42,8 +43,21 @@ async def list_employees(db:MyDb, name:str=None, is_active:bool=True):
     find=await db.execute(result)
     return find.scalars().all()
 
+
+@router.get("/me" , response_model=EmployeesResponse)
+async def get_me(db:MyDb, current_user=Depends(get_current_user)):
+    find= await db.execute(select(Employees).where(Employees.phone==current_user.phone))
+    result= find.scalars().first()
+    if not result:
+        raise HTTPException(404, "Employee not found")
+    return result
+
+
+
+
+
 @router.put("/{employee_id}")
-async def update_employee(employee_id: int, employee:EmployeesUpdate,db:MyDb):
+async def update_employee(employee_id: int, employee:EmployeesUpdate,db:MyDb , current_user=Depends(require_role("boss", "admin"))):
     employee_result = await check_ident(db , Employees , employee_id)
     if not employee_result.is_active:
         raise HTTPException(400, "Epmloyee is not active")
@@ -64,7 +78,7 @@ async def update_employee(employee_id: int, employee:EmployeesUpdate,db:MyDb):
 
 
 @router.patch("/{employee_id}")
-async def patch_employee(employee_id: int,db:MyDb, is_active:bool=True):
+async def patch_employee(employee_id: int,db:MyDb, is_active:bool=True , current_user=Depends(require_role("admin","boss"))):
     employee_result = await check_ident(db , Employees , employee_id)
     if employee_result.is_active:
         raise HTTPException(400, "Epmloyee is active")
@@ -75,9 +89,10 @@ async def patch_employee(employee_id: int,db:MyDb, is_active:bool=True):
 
 
 @router.delete("/{employee_id}")
-async def delete_employee(employee_id: int, db:MyDb):
+async def delete_employee(employee_id: int, db:MyDb , current_user=Depends(require_role("boss" ,"admin"))):
     employee = await check_ident(db , Employees , employee_id)
-
+    if current_user.is_active is not False:
+        raise HTTPException(403, "Permission denied")
     employee.is_active = False
     employee.fired_at=datetime.now(timezone.utc)
 

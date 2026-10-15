@@ -24,3 +24,6 @@ class Employees(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     employee_role: Mapped[list["EmployeeRole"]] = relationship("EmployeeRole", back_populates="employee")
+    teacher_profile: Mapped["TeacherProfiles | None"] = relationship(
+        "TeacherProfiles", back_populates="employee", uselist=False
+    )

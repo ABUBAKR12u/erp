@@ -1,7 +1,7 @@
 from datetime import date, datetime
-from typing import List
+from typing import List, Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.scheme.employee_roles import EmployeeRolesResponse
 
@@ -17,8 +17,6 @@ class EmployeesBase(BaseModel):
     photo_url: str
     position: str
     hired_at: date
-    employee_role: List[EmployeeRolesResponse] = []
-
 class EmployeesCreate(EmployeesBase):
     pass
 
@@ -40,3 +38,6 @@ class EmployeesResponse(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    employee_role: List[EmployeeRolesResponse] = Field(default_factory=list)
+
+    model_config = ConfigDict(from_attributes=True)

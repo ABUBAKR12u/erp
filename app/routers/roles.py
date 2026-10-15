@@ -1,10 +1,8 @@
 from typing import List
-
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy import select
-
 from app.database.Base import MyDb
-from app.model.branches import Branch
+from app.model.employee_roles import EmployeeRole
 from app.model.roles import Roles
 from app.scheme.roles import RoleAdd, RoleResponse, RoleUpdate
 from app.utils.checker import check_ident
@@ -16,7 +14,7 @@ router = APIRouter(
 )
 
 @router.post("/")
-async def add_role(role:RoleAdd , db:MyDb , current_user=Depends(get_current_user)):
+async def add_role(role:RoleAdd , db:MyDb , current_user=Depends(require_role("boss"))):
     find = await db.execute(select(Roles).where(Roles.code==role.code))
     result= find.scalars().first()
     if result:
@@ -29,12 +27,12 @@ async def add_role(role:RoleAdd , db:MyDb , current_user=Depends(get_current_use
     return {"message":"Role created successfully"}
 
 @router.get("/" , response_model=List[RoleResponse])
-async def list_roles(db:MyDb ,current_user = Depends(require_role("admin" ,"admins"))):
+async def list_roles(db:MyDb ,current_user=Depends(require_role("boss", "admin"))):
     results = await db.execute(select(Roles))
     return results.scalars().all()
 
 @router.put("/{role_id}")
-async def update_role(role:RoleUpdate, role_id:int, db:MyDb , current_user=Depends(get_current_user)):
+async def update_role(role:RoleUpdate, role_id:int, db:MyDb , current_user=Depends(require_role("boss"))):
     role_result = await check_ident(db , Roles , role_id)
 
     find = await db.execute(select(Roles).where(Roles.code==role.code , Roles.id!=role_id))
@@ -47,8 +45,21 @@ async def update_role(role:RoleUpdate, role_id:int, db:MyDb , current_user=Depen
     return {"message":"Role updated successfully"}
 
 @router.delete("/{role_id}")
-async def delete_role(role_id:int, db:MyDb , current_user=Depends(get_current_user)):
-    obj = await check_ident(db, Roles , role_id)
+async def delete_role(
+    role_id: int,
+    db: MyDb,
+current_user=Depends(require_role("boss"))
+):
+    obj = await check_ident(db, Roles, role_id)
+
+    in_use = await db.scalar(
+        select(EmployeeRole.employee_id)
+        .where(EmployeeRole.role_id == role_id)
+        .limit(1)
+    )
+    if in_use is not None:
+        raise HTTPException(409, "Bu rol xodimlarga biriktirilgan, avval ularni olib tashlang")
+
     await db.delete(obj)
     await db.commit()
-    return {"message":"Role deleted successfully"}
+    return {"message": "Role deleted successfully"}
