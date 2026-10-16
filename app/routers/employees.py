@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app.database.Base import MyDb
 from app.model.branches import Branch
+from app.model.employee_roles import EmployeeRole
 from app.model.employees import Employees
 from app.scheme.employees import EmployeesCreate, EmployeesResponse, EmployeesUpdate
 from app.utils.checker import check_ident
@@ -33,14 +34,21 @@ async def add_employees(employee: EmployeesCreate , db:MyDb , current_user=Depen
     await db.commit()
     return {"msg":"Employee created successfully"}
 
+
+from sqlalchemy.orm import selectinload
+from sqlalchemy import select
+
+
 @router.get("/", response_model=List[EmployeesResponse])
-async def list_employees(db:MyDb, name:str=None, is_active:bool=True , current_user=Depends(require_role("admin","boss"))):
-    result= select(Employees)
+async def list_employees(db: MyDb,name: str = None,is_active: bool = True):
+    query = select(Employees).options(
+        selectinload(Employees.employee_role).selectinload(EmployeeRole.role)
+  )
     if name:
-        result= result.where(Employees.first_name.ilike(f"%{name}%"))
+        query = query.where(Employees.first_name.ilike(f"%{name}%"))
     if is_active is not None:
-        result= result.where(Employees.is_active==is_active)
-    find=await db.execute(result)
+        query = query.where(Employees.is_active == is_active)
+    find = await db.execute(query)
     return find.scalars().all()
 
 
