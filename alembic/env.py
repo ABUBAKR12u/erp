@@ -9,6 +9,7 @@ from app.model.employees import Employees
 from app.model.employee_roles import EmployeeRole
 from app.model.roles import Roles
 from app.model.lead_sources import LeadSource
+from app.model.lead_statuses import LeadStatus
 from app.model.teacher_profiles import TeacherProfiles
 from alembic import context
 

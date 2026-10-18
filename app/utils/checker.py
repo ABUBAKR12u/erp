@@ -7,3 +7,9 @@ async def check_ident(db , model , ident):
     if not obj:
         raise HTTPException(404, "Object not found")
     return obj
+
+
+def normalize_name(name: str) -> str:
+    for ch in ("‘", "’", "ʻ", "`", "´"):
+        name = name.replace(ch, "'")
+    return " ".join(name.split())
