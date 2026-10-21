@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi_pagination import add_pagination
 from app.routers.branches import router as branches_router
 from app.routers.rooms import router as rooms_router
 from app.routers.employees import router as employees_router
@@ -12,6 +13,7 @@ from app.routers.teacher_profile import router as teacher_profile_router
 from app.routers.lead_sources import router as lead_sources_router
 from app.routers.lead_statuses import router as lead_statuses_router
 from app.routers.courses import router as courses_router
+from app.routers.students import router as students_router
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from app.utils.rate_limiting import limiter_by_user_id
@@ -50,7 +52,8 @@ app.include_router(teacher_profile_router)
 app.include_router(lead_sources_router)
 app.include_router(lead_statuses_router)
 app.include_router(courses_router)
-
+app.include_router(students_router)
+add_pagination(app)
 # app.mount("/static", StaticFiles(directory="static"), name="static")
 #
 #

@@ -20,9 +20,20 @@ class StudentBase(BaseModel):
 class StudentAdd(StudentBase):
     pass
 
-class StudentUpdate(StudentBase):
-    pass
 
+class StudentUpdate(BaseModel):
+    branch_id:    Optional[int] = None
+    first_name:   Optional[str] = None
+    last_name:    Optional[str] = None
+    phone:        Optional[str] = None
+    parent_phone: Optional[str] = None
+    birth_date:   Optional[date] = None
+    source_id:    Optional[int] = None
+    lead_id:      Optional[int] = None
+
+
+class StudentStatusUpdate(BaseModel):
+    status: StudentStatus
 
 
 class StudentResponse(BaseModel):
@@ -39,3 +50,6 @@ class StudentResponse(BaseModel):
     balance:      Decimal
     created_at:   datetime
     updated_at:   datetime
+
+    class Config:
+        from_attributes = True
