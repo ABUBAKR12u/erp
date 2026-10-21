@@ -11,6 +11,7 @@ from app.routers.employee_roles import router as employee_roles_router
 from app.routers.teacher_profile import router as teacher_profile_router
 from app.routers.lead_sources import router as lead_sources_router
 from app.routers.lead_statuses import router as lead_statuses_router
+from app.routers.courses import router as courses_router
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from app.utils.rate_limiting import limiter_by_user_id
@@ -48,6 +49,7 @@ app.include_router(employees_router)
 app.include_router(teacher_profile_router)
 app.include_router(lead_sources_router)
 app.include_router(lead_statuses_router)
+app.include_router(courses_router)
 
 # app.mount("/static", StaticFiles(directory="static"), name="static")
 #

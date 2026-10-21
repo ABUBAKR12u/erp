@@ -11,6 +11,10 @@ from app.model.roles import Roles
 from app.model.lead_sources import LeadSource
 from app.model.lead_statuses import LeadStatus
 from app.model.teacher_profiles import TeacherProfiles
+from app.model.courses import Course
+from app.model.leads import Lead
+from app.model.students import Student
+
 from alembic import context
 
 # this is the Alembic Config object, which provides
