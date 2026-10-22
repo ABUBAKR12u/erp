@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException
 from fastapi_pagination import Page
 from sqlalchemy import select, or_, and_
 from fastapi_pagination.ext.sqlalchemy import apaginate
+from sqlalchemy.orm import selectinload
+
 from app.database.Base import MyDb
 from datetime import date
 from app.model.branches import Branch
@@ -30,24 +32,27 @@ async def add_student(student: StudentAdd, db: MyDb):
 @router.get("/", response_model=Page[StudentResponse])
 async def get_students(
     db: MyDb,
-    search: str | None = None,
-    first_name: str | None = None,
-    last_name: str | None = None,
-    phone: str | None = None,
-    branch_id: int | None = None,
-    status: StudentStatus | None = None,
-    start_date: date | None = None,
-    end_date: date | None = None,
-    min_balance: float | None = None,
-    max_balance: float | None = None,
+    search:       str | None          = None,
+    first_name:   str | None          = None,
+    last_name:    str | None          = None,
+    phone:        str | None          = None,
+    branch_id:    int | None          = None,
+    status:       StudentStatus | None = None,
+    start_date:   date | None         = None,
+    end_date:     date | None         = None,
+    min_balance:  float | None        = None,
+    max_balance:  float | None        = None,
 ):
     if start_date and end_date and start_date > end_date:
         raise HTTPException(400, "start_date end_date dan katta bo'la olmaydi")
-
     if min_balance is not None and max_balance is not None and min_balance > max_balance:
         raise HTTPException(400, "min_balance max_balance dan katta bo'la olmaydi")
 
-    query = select(Student)
+    query = select(Student).options(
+        selectinload(Student.branch),
+        selectinload(Student.source),
+        selectinload(Student.lead),
+    )
     conditions = []
 
     if search:

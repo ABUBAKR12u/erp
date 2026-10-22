@@ -14,6 +14,7 @@ from app.routers.lead_sources import router as lead_sources_router
 from app.routers.lead_statuses import router as lead_statuses_router
 from app.routers.courses import router as courses_router
 from app.routers.students import router as students_router
+from app.routers.leads import router as lead_router
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from app.utils.rate_limiting import limiter_by_user_id
@@ -22,22 +23,22 @@ from app.utils.rate_limiting import limiter_by_user_id
 
 app = FastAPI(title="ERP system api" , version="1.0")
 
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=[
-#         "http://localhost:3000",
-#         "http://127.0.0.1:3000",
-#         "http://localhost:5173",
-#         "http://127.0.0.1:5173",
-#         "http://localhost:5500",
-#         "http://127.0.0.1:5500",
-#         "http://localhost:8000",
-#         "http://127.0.0.1:8000",
-#     ],
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5500",
+        "http://127.0.0.1:5500",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.state.limiter = limiter_by_user_id
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -53,10 +54,11 @@ app.include_router(lead_sources_router)
 app.include_router(lead_statuses_router)
 app.include_router(courses_router)
 app.include_router(students_router)
+app.include_router(lead_router)
 add_pagination(app)
-# app.mount("/static", StaticFiles(directory="static"), name="static")
-#
-#
-# @app.get("/", include_in_schema=False)
-# async def index():
-#     return FileResponse("static/index.html")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.get("/", include_in_schema=False)
+async def index():
+    return FileResponse("static/index.html")

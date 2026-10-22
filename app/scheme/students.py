@@ -2,8 +2,25 @@ from datetime import datetime, date
 from decimal import Decimal
 from pydantic import BaseModel
 from typing import Optional
-
 from app.model.students import StudentStatus
+
+
+class BranchInfo(BaseModel):
+    id:   int
+    name: str
+    model_config = {"from_attributes": True}
+
+class SourceInfo(BaseModel):
+    id:   int
+    name: str
+    model_config = {"from_attributes": True}
+
+class LeadInfo(BaseModel):
+    id:         int
+    first_name: str
+    last_name:  Optional[str]
+    phone:      str
+    model_config = {"from_attributes": True}
 
 
 class StudentBase(BaseModel):
@@ -38,18 +55,18 @@ class StudentStatusUpdate(BaseModel):
 
 class StudentResponse(BaseModel):
     id:           int
-    branch_id:    int
     first_name:   str
     last_name:    str
     phone:        str
     parent_phone: str
     birth_date:   Optional[date]
-    source_id:    Optional[int]
-    lead_id:      Optional[int]
     status:       StudentStatus
     balance:      Decimal
     created_at:   datetime
     updated_at:   datetime
 
-    class Config:
-        from_attributes = True
+    branch: Optional[BranchInfo] = None
+    source: Optional[SourceInfo] = None
+    lead:   Optional[LeadInfo]   = None
+
+    model_config = {"from_attributes": True}

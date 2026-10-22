@@ -1,8 +1,10 @@
 import enum
 from datetime import datetime, date
 from decimal import Decimal
+from typing import Optional
+
 from sqlalchemy import Integer, String, Date, DateTime, Numeric, Enum
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.Base import Base
 
@@ -31,3 +33,6 @@ class Student(Base):
     balance:      Mapped[Decimal]       = mapped_column(Numeric(14, 2), default=0)
     created_at:   Mapped[datetime]      = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at:   Mapped[datetime]      = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    branch: Mapped[Optional["Branch"]]     = relationship("Branch",     primaryjoin="Student.branch_id == Branch.id",   foreign_keys=[branch_id], lazy="noload")
+    source: Mapped[Optional["LeadSource"]] = relationship("LeadSource", primaryjoin="Student.source_id == LeadSource.id", foreign_keys=[source_id], lazy="noload")
+    lead:   Mapped[Optional["Lead"]]       = relationship("Lead",       primaryjoin="Student.lead_id == Lead.id",       foreign_keys=[lead_id],   lazy="noload")
