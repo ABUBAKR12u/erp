@@ -15,6 +15,7 @@ from app.routers.lead_statuses import router as lead_statuses_router
 from app.routers.courses import router as courses_router
 from app.routers.students import router as students_router
 from app.routers.leads import router as lead_router
+from app.routers.groups import router as groups_router
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from app.utils.rate_limiting import limiter_by_user_id
@@ -55,6 +56,7 @@ app.include_router(lead_statuses_router)
 app.include_router(courses_router)
 app.include_router(students_router)
 app.include_router(lead_router)
+app.include_router(groups_router)
 add_pagination(app)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

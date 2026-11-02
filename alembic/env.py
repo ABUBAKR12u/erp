@@ -14,6 +14,7 @@ from app.model.teacher_profiles import TeacherProfiles
 from app.model.courses import Course
 from app.model.leads import Lead
 from app.model.students import Student
+from app.model.groups import Group
 
 from alembic import context
 

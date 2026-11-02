@@ -5,6 +5,7 @@ from sqlalchemy import select, func
 
 from app.database.Base import MyDb
 from app.model.courses import Course
+from app.model.groups import Group
 from app.scheme.courses import CourseAdd, CourseResponse, CourseUpdate
 from app.utils.checker import check_ident, normalize_name
 
@@ -71,6 +72,10 @@ async def patch_course_status(course_id: int, body:bool, db: MyDb):
 @router.delete("/{course_id}")
 async def delete_course(course_id: int, db: MyDb):
     db_course =await check_ident(db , Course , course_id)
+
+    find = await db.execute(select(Group.id).where(Group.course_id == course_id).limit(1))
+    if find.scalar() is not None:
+        raise HTTPException(409, "Kursga guruhlar bog'langan, uni o'chirish o'rniga faolsizlantiring")
 
     await db.delete(db_course)
     await db.commit()

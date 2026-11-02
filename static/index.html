@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#15242d">
+    <title>Guruhlar · Markaz ERP</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/script.js" defer></script>
+</head>
+<body>
+    <svg class="icons" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+        <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+        <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+        <symbol id="i-edit" viewBox="0 0 24 24"><path d="m15 5 4 4M4 20l5-1L20 8a2.8 2.8 0 0 0-4-4L5 15l-1 5Z"/></symbol>
+        <symbol id="i-arrow" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+        <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M5 8a8 8 0 0 1 13-3l2 3M4 16l2 3a8 8 0 0 0 13-3"/></symbol>
+        <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 4H4v16h5m6-13 5 5-5 5M9 12h11"/></symbol>
+    </svg>
+
+    <section id="login-view" class="login-view">
+        <div class="login-brand"><span class="brand-mark">m<span>·</span></span>markaz<span class="brand-tag">ERP / CRM</span></div>
+        <div class="login-card">
+            <span class="eyebrow">XUSH KELIBSIZ</span>
+            <h1>Ish kunini boshlaymiz.</h1>
+            <p>O‘quv markazingizni boshqarish uchun hisobingizga kiring.</p>
+            <form id="login-form">
+                <label for="phone">Telefon raqamingiz</label>
+                <input id="phone" name="username" type="tel" autocomplete="username" placeholder="+998 90 123 45 67" required>
+                <label for="password">Parol</label>
+                <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Parolingizni kiriting" required>
+                <p id="login-error" class="error" role="alert" hidden></p>
+                <button class="button primary" type="submit">Tizimga kirish <svg><use href="#i-arrow"/></svg></button>
+            </form>
+            <div class="login-note">Administrator yoki rahbar hisobi bilan kiring.</div>
+        </div>
+        <p class="login-footer">Ta’limga e’tibor. Boshqaruvda tartib.</p>
+    </section>
+
+    <div id="app-view" class="app-layout" hidden>
+        <aside class="sidebar">
+            <a class="brand" href="/" aria-label="Markaz bosh sahifasi"><span class="brand-mark">m<span>·</span></span><span>markaz<small>ERP / CRM</small></span></a>
+            <div class="workspace-label"><span class="workspace-dot"></span> O‘quv markazi</div>
+            <div class="nav-label">O‘QUV JARAYONI</div>
+            <nav aria-label="Asosiy menyu"><a class="nav-item active" href="/" aria-current="page"><svg><use href="#i-grid"/></svg> Guruhlar <span id="nav-count">0</span></a></nav>
+            <div class="sidebar-bottom"><div class="account"><span class="avatar" id="user-avatar">M</span><div><strong id="user-name">Hisobingiz</strong><small>Boshqaruv paneli</small></div></div><button id="logout" class="logout-button" type="button"><svg><use href="#i-logout"/></svg> Chiqish</button></div>
+        </aside>
+
+        <main>
+            <header class="topbar"><div>O‘quv jarayoni <span>/</span> <strong>Guruhlar</strong></div><time id="today"></time></header>
+            <div class="page-content">
+                <section class="page-heading"><div><span class="eyebrow">O‘QUV JARAYONI</span><h1>Guruhlar<span class="title-dot">.</span></h1><p>Har bir guruh, o‘z yo‘nalishi va o‘z maqsadi bilan.</p></div><button id="add-group" class="button primary" type="button"><svg><use href="#i-plus"/></svg> Yangi guruh</button></section>
+
+                <section class="groups-panel" aria-label="Guruhlar ro‘yxati">
+                    <div class="panel-heading"><div><h2>Barcha guruhlar <span id="total-count" class="count-badge">0</span></h2><p>Rejalashtirishdan bitiruvgacha — barchasi bir joyda.</p></div><button id="refresh" class="icon-button" type="button" aria-label="Ro‘yxatni yangilash" title="Yangilash"><svg><use href="#i-refresh"/></svg></button></div>
+                    <form id="filters" class="filters" role="search">
+                        <div class="search-input"><svg><use href="#i-search"/></svg><input id="search" name="search" aria-label="Guruh nomi bo‘yicha qidirish" placeholder="Guruh nomini qidiring…" autocomplete="off"></div>
+                        <select id="filter-branch" name="branch_id" aria-label="Filial bo‘yicha saralash"><option value="">Barcha filiallar</option></select>
+                        <select id="filter-course" name="course_id" aria-label="Kurs bo‘yicha saralash"><option value="">Barcha kurslar</option></select>
+                        <select id="filter-status" name="status" aria-label="Holat bo‘yicha saralash"><option value="">Barcha holatlar</option><option value="rejalashtirilgan">Rejalashtirilgan</option><option value="faol">Faol</option><option value="tugagan">Tugagan</option><option value="bekor_qilingan">Bekor qilingan</option></select>
+                        <button id="clear-filters" class="text-button" type="button" hidden>Tozalash</button>
+                    </form>
+                    <div id="page-error" class="error page-error" role="alert" hidden></div>
+                    <div class="table-wrap"><table aria-label="Guruhlar" id="groups-table"><thead><tr><th>Guruh / kurs</th><th>Filial / xona</th><th>O‘qituvchi</th><th>O‘quvchilar</th><th>Oylik narx</th><th>Boshlanish</th><th>Holati</th><th><span class="sr-only">Amallar</span></th></tr></thead><tbody id="groups-body"></tbody></table></div>
+                    <div id="empty-state" class="empty-state" hidden><div class="empty-icon"><svg><use href="#i-grid"/></svg></div><h3>Hozircha guruhlar yo‘q</h3><p id="empty-description">Birinchi guruhni oching va o‘quv jarayonini boshlang.</p><button id="empty-add" class="button secondary" type="button"><svg><use href="#i-plus"/></svg> Guruh ochish</button></div>
+                    <div class="table-footer"><span id="result-count" role="status" aria-live="polite">Yuklanmoqda…</span><div class="pagination"><button id="previous-page" class="icon-button previous" type="button" aria-label="Oldingi sahifa"><svg><use href="#i-arrow"/></svg></button><span id="page-number">1 / 1</span><button id="next-page" class="icon-button" type="button" aria-label="Keyingi sahifa"><svg><use href="#i-arrow"/></svg></button></div></div>
+                </section>
+                <footer class="page-footer"><span>markaz <span class="muted">/</span> Ta’limni birga boshqaramiz.</span><span>ERP · CRM</span></footer>
+            </div>
+        </main>
+    </div>
+
+    <dialog id="group-dialog" aria-labelledby="dialog-title">
+        <form id="group-form">
+            <div class="dialog-heading"><div><span class="eyebrow">O‘QUV JARAYONI</span><h2 id="dialog-title">Yangi guruh</h2></div><button class="icon-button" id="close-dialog" type="button" aria-label="Yopish"><svg><use href="#i-close"/></svg></button></div>
+            <div class="form-fields">
+                <div class="field full"><label for="group-name">Guruh nomi <span>*</span></label><input id="group-name" name="name" maxlength="80" placeholder="Masalan, PY-26-01" required></div>
+                <div class="field"><label for="group-branch">Filial <span>*</span></label><select id="group-branch" name="branch_id" required></select></div>
+                <div class="field"><label for="group-course">Kurs <span>*</span></label><select id="group-course" name="course_id" required></select></div>
+                <div class="field"><label for="group-teacher">O‘qituvchi <span>*</span></label><select id="group-teacher" name="teacher_id" required></select></div>
+                <div class="field"><label for="group-room">Xona <span>*</span></label><select id="group-room" name="room_id" required></select></div>
+                <div class="field"><label for="start-date">Boshlanish sanasi <span>*</span></label><input id="start-date" name="start_date" type="date" required></div>
+                <div class="field"><label for="end-date">Tugash sanasi</label><input id="end-date" name="end_date" type="date"></div>
+                <div class="field"><label for="max-students">O‘quvchilar chegarasi <span>*</span></label><input id="max-students" name="max_students" type="number" min="1" max="32767" step="1" placeholder="Masalan, 12" required><small id="capacity-hint">Avval xonani tanlang.</small></div>
+                <div class="field"><label for="group-price">Oylik narx, so‘m</label><input id="group-price" name="price" type="number" min="0" max="999999999999.99" step="0.01" placeholder="Kurs narxi bo‘yicha"><small id="price-hint">Bo‘sh qoldirilsa, kurs narxi olinadi.</small></div>
+                <div class="field full"><label for="group-status">Guruh holati</label><select id="group-status" name="status"><option value="rejalashtirilgan">Rejalashtirilgan</option><option value="faol">Faol</option><option value="tugagan">Tugagan</option><option value="bekor_qilingan">Bekor qilingan</option></select></div>
+                <p id="form-error" class="error full" role="alert" hidden></p>
+            </div>
+            <div class="dialog-footer"><button class="button secondary" id="cancel-dialog" type="button">Yopish</button><button class="button primary" id="save-group" type="submit">Guruhni saqlash</button></div>
+        </form>
+    </dialog>
+
+    <dialog id="cancel-group-dialog" class="small-dialog" aria-labelledby="cancel-title"><form id="cancel-group-form"><div class="dialog-heading"><h2 id="cancel-title">Guruhni bekor qilish</h2></div><div class="cancel-content"><p><strong id="cancel-group-name"></strong> guruhini bekor qilasizmi?</p><p class="muted">Guruh tarixi saqlanib qoladi.</p><p id="cancel-error" class="error" role="alert" hidden></p></div><div class="dialog-footer"><button id="keep-group" class="button secondary" type="button">Ortga</button><button id="confirm-cancel" class="button danger" type="submit">Bekor qilish</button></div></form></dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <noscript>Bu sahifadan foydalanish uchun brauzeringizda JavaScript’ni yoqing.</noscript>
+</body>
+</html>
