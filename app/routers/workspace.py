@@ -50,6 +50,7 @@ async def workspace_options(db: MyDb, current_user=Depends(get_current_user)):
     sources = (await db.execute(select(LeadSource).order_by(LeadSource.name))).scalars().all()
     statuses = (await db.execute(select(LeadStatus).order_by(LeadStatus.position))).scalars().all()
     profiles = (await db.execute(select(TeacherProfiles.employee_id))).scalars().all()
+    groups = (await db.execute(scoped(select(Group), Group.branch_id, current_user).order_by(Group.name))).scalars().all()
     return {
         "user": {
             "id": current_user.id, "first_name": current_user.first_name, "last_name": current_user.last_name,
@@ -66,6 +67,9 @@ async def workspace_options(db: MyDb, current_user=Depends(get_current_user)):
         "sources": [{"id": s.id, "name": s.name, "is_active": s.is_active} for s in sources],
         "statuses": [{"id": s.id, "name": s.name, "position": s.position, "is_won": s.is_won, "is_lost": s.is_lost} for s in statuses],
         "students": [dict(row) for row in students], "leads": [dict(row) for row in leads],
+        "groups": [{"id": g.id, "name": g.name, "branch_id": g.branch_id, "teacher_id": g.teacher_id,
+                    "room_id": g.room_id, "status": g.status, "start_date": g.start_date,
+                    "end_date": g.end_date, "max_students": g.max_students} for g in groups],
     }
 
 

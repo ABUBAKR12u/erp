@@ -14,7 +14,7 @@ Mavjud xodim hisobi bilan kiring. Menyu va amallar xodim roliga qarab ko'rsatila
 
 ## Web interfeys
 
-12 ta mavjud jadval uchun ishlaydigan bo'limlar bor: lidlar, o'quvchilar, guruhlar, kurslar, xodimlar, o'qituvchi profillari, filiallar, xonalar, qabul manbalari, qabul bosqichlari, rollar va xodim rollari. Bosh sahifadagi ko'rsatkichlar va olti oylik diagramma bazadagi ma'lumotlardan hisoblanadi.
+14 ta mavjud jadval uchun ishlaydigan bo'limlar bor: lidlar, o'quvchilar, guruhlar, haftalik jadval, darslar, kurslar, xodimlar, o'qituvchi profillari, filiallar, xonalar, qabul manbalari, qabul bosqichlari, rollar va xodim rollari. Bosh sahifadagi ko'rsatkichlar va olti oylik diagramma bazadagi ma'lumotlardan hisoblanadi.
 
 - Lidlar uchun Kanban va jadval; boshqa bo'limlar uchun mos kartochka va jadval ko'rinishlari.
 - Qidiruvli, klaviatura bilan boshqariladigan selectlar, bog'liq filial/xona/o'qituvchi tanlovlari.
@@ -50,8 +50,34 @@ Guruh narxi bo'sh bo'lsa kurs narxi olinadi; `0` alohida bepul narx hisoblanadi.
 
 `e31f8b620a01` migratsiyasi mavjud `courses` jadvalini tarixga kiritadi va yangi bazada uni yaratadi. Orqaga qaytarilganda bu jadval va undagi ma'lumotlar saqlanadi. Keyingi migratsiya `groups` jadvalini yaratadi.
 
+## Haftalik jadval va darslar
+
+`Haftalik jadval` (`group_schedules`) guruhning hafta kuni, boshlanish/tugash vaqti va xonasini saqlaydi. Hafta kuni 1 = dushanba, 7 = yakshanba. Xona guruhning asosiy xonasidan farq qilishi mumkin. Jadval guruhning o'qish muddati davomida amal qiladi.
+
+`Darslar` (`lesson_sessions`) aniq sana, mavzu, o'qituvchi, xona, vaqt, holat va izohni saqlaydi. Holatlar: `rejalashtirilgan`, `otilgan`, `bekor_qilingan`. Vaqt Toshkent vaqti (UTC+5) bilan kiritiladi. Tugamagan darsni o'tilgan deb belgilab bo'lmaydi. Darsni bekor qilish uning tarixini saqlaydi; qayta faollashtirishda bandlik yana tekshiriladi.
+
+- Ikkala bo'limda yaratish, tahrirlash, batafsil ko'rish, qidiruv, filtr va CSV eksport bor. Guruh profilidan ham uning jadvali/darslarini ochish mumkin.
+- `Jadvaldan darslar yaratish` bilan 1–93 kunlik davrni tanlang. Har bir mos hafta kuni uchun dars yaratiladi; mavjud darslar, shu jumladan bekor qilinganlari ham, qayta yaratilmaydi. Bir to'qnashuv chiqsa, butun yaratish bekor qilinadi.
+- Xona, o'qituvchi va guruhning o'z vaqtlari bir-biriga to'qnashmasligi tekshiriladi. 14:00–16:00 va 16:00–18:00 ketma-ket darslar bo'lishi mumkin. Guruhlarning sanalari va haqiqiy umumiy hafta kunlari hisobga olinadi.
+- Aniq dars haftalik slot bilan bir xil sana/vaqtga ega bo'lsa, o'sha kungi o'qituvchi/xona bandligi aniq darsdan olinadi. Dars vaqtini ko'chirish haftalik rejani o'zgartirmaydi.
+- Haftalik rejani o'zgartirish yoki o'chirish avval yaratilgan darslarga tegmaydi. Guruhning asosiy o'qituvchisi almashsa ham yaratilgan darsning o'qituvchisi saqlanadi; kerakli aniq darsni alohida tahrirlash mumkin.
+- Jadval/darslarni buzadigan guruh, xona va o'qituvchi o'zgarishlari bloklanadi. Parallel so'rovlar MySQL'dagi umumiy jadval qulfi bilan ketma-ket tekshiriladi.
+- Filial bo'yicha ruxsatlar barcha amallarda tekshiriladi; asosiy administrator barcha filiallarga kira oladi.
+
+| API | Vazifasi |
+| --- | --- |
+| `GET/POST /group-schedules/` | Haftalik jadval ro'yxati / yaratish |
+| `GET/PUT/DELETE /group-schedules/{id}` | Ko'rish / tahrirlash / haftalik slotni o'chirish |
+| `GET/POST /lesson-sessions/` | Darslar ro'yxati / yaratish |
+| `GET/PUT /lesson-sessions/{id}` | Ko'rish / tahrirlash |
+| `PATCH /lesson-sessions/{id}/status` | Dars holatini o'zgartirish |
+| `DELETE /lesson-sessions/{id}` | Darsni bekor qilish, tarixini saqlash |
+| `POST /lesson-sessions/generate` | Guruh va sanalar bo'yicha jadvaldan darslar yaratish |
+
+`b731c9a42004` migratsiyasi ikkala jadvalni yaratadi.
+
 ## Mustaqil integratsion testlar
 
-`python -m pytest tests/test_groups.py tests/test_workspace.py tests/test_main_admin.py -q`
+`python -m pytest tests/test_groups.py tests/test_workspace.py tests/test_main_admin.py tests/test_timetable.py -q`
 
 Bu testlar alohida SQLite xotira bazasida ishlaydi. Loyihaning MySQL bazasiga tegmaydi. Avvalgi testlarning `conftest.py` va `test_course.py` fayllarida MySQL test bazasi alohida sozlangan.

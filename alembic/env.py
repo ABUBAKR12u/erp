@@ -15,6 +15,8 @@ from app.model.courses import Course
 from app.model.leads import Lead
 from app.model.students import Student
 from app.model.groups import Group
+from app.model.group_schedules import GroupSchedule
+from app.model.lesson_sessions import LessonSession
 
 from alembic import context
 

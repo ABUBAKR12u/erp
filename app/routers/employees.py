@@ -11,6 +11,7 @@ from app.model.employee_roles import EmployeeRole
 from app.model.employees import Employees
 from app.scheme.employees import EmployeesCreate, EmployeesResponse, EmployeesUpdate
 from app.utils.checker import check_ident
+from app.utils.timetable import lock_timetable, protect_teacher_timetable
 from app.utils.security import hash_password, verify_password, create_access_token, create_refresh_token, require_role, \
     get_current_user
 
@@ -66,11 +67,14 @@ async def get_me(db:MyDb, current_user=Depends(get_current_user)):
 
 @router.put("/{employee_id}")
 async def update_employee(employee_id: int, employee:EmployeesUpdate,db:MyDb , current_user=Depends(require_role("boss", "admin"))):
+    await lock_timetable(db)
     employee_result = await check_ident(db , Employees , employee_id)
     if not employee_result.is_active:
         raise HTTPException(400, "Epmloyee is not active")
 
     await check_ident(db, Branch , employee.branch_id)
+    if employee_result.branch_id != employee.branch_id:
+        await protect_teacher_timetable(db, employee_id, employee.branch_id)
     result = await db.execute(select(Employees).where(Employees.phone==employee.phone , Employees.id != employee_id))
     user= result.scalars().first()
     if user:
@@ -103,11 +107,13 @@ async def patch_employee(employee_id: int,db:MyDb, is_active:bool=True , current
 
 @router.delete("/{employee_id}")
 async def delete_employee(employee_id: int, db:MyDb , current_user=Depends(require_role("boss" ,"admin"))):
+    await lock_timetable(db)
     employee = await check_ident(db , Employees , employee_id)
     if employee.is_superadmin:
         raise HTTPException(403, "Asosiy administratorni o'chirib bo'lmaydi")
     if current_user.id == employee_id:
         raise HTTPException(400, "O'zingizni faolsizlantira olmaysiz")
+    await protect_teacher_timetable(db, employee_id)
     employee.is_active = False
     employee.fired_at=datetime.now(timezone.utc).date()
 

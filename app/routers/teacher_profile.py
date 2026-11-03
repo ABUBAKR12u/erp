@@ -14,6 +14,7 @@ from app.scheme.teacher_profiles import (
     TeacherProfilesResponse,
 )
 from app.utils.checker import check_ident
+from app.utils.timetable import lock_timetable, protect_teacher_timetable
 from app.utils.security import require_role, get_current_user  # get_current_user qo'shildi
 # from app.utils.common import check_ident
 # from app.database import MyDb
@@ -108,6 +109,8 @@ async def delete_teacher_profile(
     db: MyDb,
     current_user=Depends(require_role("admin","boss")),
 ):
+    await lock_timetable(db)
+    await protect_teacher_timetable(db, employee_id)
     profile = await db.get(TeacherProfiles, employee_id)
     if not profile:
         raise HTTPException(404, "Teacher profile topilmadi")

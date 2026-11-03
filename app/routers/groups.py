@@ -16,6 +16,7 @@ from app.model.teacher_profiles import TeacherProfiles
 from app.scheme.groups import GroupAdd, GroupUpdate, GroupResponse, GroupStatusUpdate, GroupOptions
 from app.utils.checker import check_ident, normalize_name
 from app.utils.security import require_role
+from app.utils.timetable import lock_timetable, validate_group_timetable
 
 router = APIRouter(tags=["Groups"], prefix="/groups")
 
@@ -126,6 +127,7 @@ async def get_group_options(db: MyDb, current_user=Depends(get_group_user)):
 
 @router.post("/", response_model=GroupResponse, status_code=201)
 async def add_group(group: GroupAdd, db: MyDb, current_user=Depends(get_group_user)):
+    await lock_timetable(db)
     await validate_group(db, group, current_user)
     obj = Group(**group.model_dump())
     db.add(obj)
@@ -169,7 +171,10 @@ async def get_group(group_id: int, db: MyDb, current_user=Depends(get_group_user
 
 @router.put("/{group_id}", response_model=GroupResponse)
 async def update_group(group_id: int, group: GroupUpdate, db: MyDb, current_user=Depends(get_group_user)):
-    obj = await check_ident(db, Group, group_id)
+    await lock_timetable(db)
+    obj = await db.scalar(select(Group).where(Group.id == group_id).with_for_update().execution_options(populate_existing=True))
+    if obj is None:
+        raise HTTPException(404, "Guruh topilmadi")
     check_branch(current_user, obj.branch_id)
     update_data = group.model_dump(exclude_unset=True)
     if obj.current_students and any(
@@ -184,6 +189,7 @@ async def update_group(group_id: int, group: GroupUpdate, db: MyDb, current_user
     except ValidationError as exc:
         raise HTTPException(422, jsonable_encoder(exc.errors(include_context=False)))
     await validate_group(db, data, current_user, group_id, obj.current_students)
+    await validate_group_timetable(db, obj, data)
     for field, value in data.model_dump().items():
         setattr(obj, field, value)
     return await save_group(db, obj)

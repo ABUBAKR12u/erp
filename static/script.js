@@ -11,7 +11,13 @@ const shortMonths = ["yan", "fev", "mar", "apr", "may", "iyn", "iyl", "avg", "se
 const tones = ["mint", "lilac", "peach", "blue", "rose"];
 const studentStatuses = { sinovda: "Sinovda", faol: "Faol", muzlatilgan: "Muzlatilgan", bitirgan: "Bitirgan", ketgan: "Ketgan" };
 const groupStatuses = { rejalashtirilgan: "Rejalashtirilgan", faol: "Faol", tugagan: "Tugagan", bekor_qilingan: "Bekor qilingan" };
+const sessionStatuses = { rejalashtirilgan: "Rejalashtirilgan", otilgan: "O‘tilgan", bekor_qilingan: "Bekor qilingan" };
+const weekdays = { 1: "Dushanba", 2: "Seshanba", 3: "Chorshanba", 4: "Payshanba", 5: "Juma", 6: "Shanba", 7: "Yakshanba" };
+const timeLabel = (value) => String(value || "").slice(0, 5);
+const isoToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tashkent", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 const paths = {
+    schedules: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18m-13 4h2m4 0h2m-8 3h2"/>',
+    sessions: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M7 2v4m10-4v4M3 10h18m-13 6 3 3 5-6"/>',
     home: '<path d="m3 10 9-7 9 7v10H3Z"/><path d="M9 20v-7h6v7"/>',
     dashboard: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/>',
     leads: '<path d="M12 3v4m0 10v4M3 12h4m10 0h4"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
@@ -183,6 +189,8 @@ const field = (key, label, type = "text", extra = {}) => ({ key, label, type, ..
 const section = (label) => ({ type: "section", label });
 const enumOptions = (values) => Object.entries(values).map(([value, label]) => ({ value, label }));
 const moduleDefinitions = {
+    schedules: { title: "Haftalik jadval", singular: "Jadval", add: "Jadval qo‘shish", icon: "schedules", group: "O‘QUV JARAYONI", path: "/group-schedules/", paged: true, mode: "week", modes: ["week", "table"], read: ["boss", "admin"], write: ["boss", "admin"], description: "Hafta ritmi: qaysi guruh, qaysi kun, qaysi xonada.", fields: [field("group_id", "Guruh", "select", { source: "groups", required: true, full: true }), field("weekday", "Hafta kuni", "select", { choices: enumOptions(weekdays), required: true, default: "1" }), field("room_id", "Xona", "select", { source: "rooms", required: true }), field("start_time", "Boshlanish vaqti", "time", { required: true, default: "14:00" }), field("end_time", "Tugash vaqti", "time", { required: true, default: "16:00" })] },
+    sessions: { title: "Darslar", singular: "Dars", add: "Dars qo‘shish", icon: "sessions", group: "O‘QUV JARAYONI", path: "/lesson-sessions/", paged: true, mode: "agenda", modes: ["agenda", "table"], read: ["boss", "admin"], write: ["boss", "admin"], description: "Aniq sana, o‘tilgan mavzu va darsning o‘z tarixi.", fields: [section("DARS VA JOY"), field("group_id", "Guruh", "select", { source: "groups", required: true, full: true }), field("date", "Dars sanasi", "date", { required: true }), field("teacher_id", "Dars o‘tadigan o‘qituvchi", "select", { source: "teachers", required: true }), field("start_time", "Boshlanish vaqti", "time", { required: true, default: "14:00" }), field("end_time", "Tugash vaqti", "time", { required: true, default: "16:00" }), field("room_id", "Xona", "select", { source: "rooms", required: true }), field("status", "Dars holati", "select", { choices: enumOptions(sessionStatuses), required: true, default: "rejalashtirilgan" }), section("MAVZU VA XULOSA"), field("topic", "Dars mavzusi", "text", { max: 200, full: true, placeholder: "Masalan, Python: ro‘yxatlar va sikllar" }), field("note", "Dars haqida izoh", "textarea", { max: 5000, full: true, placeholder: "Nimalar o‘tildi? Keyingi dars uchun nimalar kerak?" })] },
     leads: { title: "Lidlar", singular: "Lid", add: "Yangi lid", icon: "leads", group: "CRM VA QABUL", path: "/leads/", paged: true, mode: "kanban", modes: ["kanban", "table"], read: ["boss", "admin", "manager"], write: ["boss", "admin"], description: "Birinchi qiziqishdan o‘quvchingiz bo‘lgunigacha.", fields: [section("ASOSIY MA’LUMOTLAR"), field("first_name", "Ism", "text", { required: true, max: 60 }), field("last_name", "Familiya", "text", { max: 60 }), field("phone", "Telefon", "tel", { required: true, placeholder: "+998 90 123 45 67" }), field("branch_id", "Filial", "select", { source: "branches", required: true }), section("QIZIQISH VA ALOQA"), field("course_id", "Qiziqqan kursi", "select", { source: "courses" }), field("source_id", "Qayerdan keldi?", "select", { source: "sources" }), field("status_id", "Qabul bosqichi", "select", { source: "statuses" }), field("assigned_to", "Mas’ul xodim", "select", { source: "employees" }), field("comment", "Suhbat va izoh", "textarea", { full: true, placeholder: "Qaysi yo‘nalishga qiziqyapti? Qachon bog‘lanish qulay?" }), field("lost_reason", "Yo‘qotilish sababi", "text", { full: true, max: 200, helper: "Lid yo‘qotilgan bo‘lsa, sababini yozishingiz mumkin." })] },
     students: { title: "O‘quvchilar", singular: "O‘quvchi", add: "O‘quvchi qo‘shish", icon: "students", group: "O‘QUV JARAYONI", path: "/students/", paged: true, mode: "table", modes: ["table", "grid"], write: ["boss", "admin"], description: "Ismlar, aloqa, holat va o‘quvchi haqida kerakli ma’lumotlar.", fields: [section("SHAXSIY MA’LUMOTLAR"), field("first_name", "Ism", "text", { required: true, max: 60 }), field("last_name", "Familiya", "text", { required: true, max: 60 }), field("phone", "O‘quvchi telefoni", "tel", { required: true }), field("parent_phone", "Ota-ona telefoni", "tel", { required: true }), field("birth_date", "Tug‘ilgan sana", "date"), field("branch_id", "Filial", "select", { source: "branches", required: true }), section("QABUL MA’LUMOTLARI"), field("source_id", "Qabul manbasi", "select", { source: "sources" }), field("lead_id", "Bog‘langan lid", "select", { source: "leads" }), field("status", "O‘quvchi holati", "select", { choices: enumOptions(studentStatuses), editOnly: true, full: true })] },
     groups: { title: "Guruhlar", singular: "Guruh", add: "Guruh ochish", icon: "groups", group: "O‘QUV JARAYONI", path: "/groups/", paged: true, mode: "grid", modes: ["grid", "table"], read: ["boss", "admin"], write: ["boss", "admin"], description: "Har bir guruhning o‘qituvchisi, xonasi va rivojlanish maydoni.", fields: [section("GURUHNING ASOSI"), field("name", "Guruh nomi", "text", { required: true, full: true, max: 80, placeholder: "Masalan, PY-26-01" }), field("branch_id", "Filial", "select", { source: "branches", required: true }), field("course_id", "Kurs", "select", { source: "courses", required: true }), field("teacher_id", "O‘qituvchi", "select", { source: "teachers", required: true }), field("room_id", "Xona", "select", { source: "rooms", required: true }), section("MUDDAT VA SHARTLAR"), field("start_date", "Boshlanish sanasi", "date", { required: true }), field("end_date", "Tugash sanasi", "date"), field("max_students", "O‘quvchilar chegarasi", "number", { required: true, min: 1, max: 32767, helper: "Xona sig‘imidan oshmasligi kerak." }), field("price", "Oylik narx, so‘m", "number", { min: 0, step: "0.01", helper: "Bo‘sh qoldirilsa, kursning standart narxi olinadi." }), field("status", "Guruh holati", "select", { choices: enumOptions(groupStatuses), required: true, default: "rejalashtirilgan", full: true })] },
@@ -204,13 +212,14 @@ function protectedAssignment(row) { return state.view === "assignments" && looku
 function protectedAdminPill() { return `<span class="pill no-dot blue">${icon("roles")}Asosiy admin</span>`; }
 function keyOf(row, module = state.view) { return String(module === "assignments" ? `${row.employee_id}:${row.role_id}` : module === "teachers" ? row.employee_id : row.id); }
 function recordName(row, module = state.view) {
+    if (["schedules", "sessions"].includes(module)) return `${row.group?.name || lookup("groups", row.group_id)?.name || "Guruh"} · ${module === "schedules" ? weekdays[row.weekday] : dateLabel(row.date)}`;
     if (module === "teachers" || module === "assignments") return fullName(lookup("employees", row.employee_id));
     return row.name || fullName(row);
 }
 function activePill(value) { return `<span class="pill ${value ? "green" : "gray"}">${value ? "Faol" : "Faol emas"}</span>`; }
 function statusPill(value, type = "student") {
-    const names = type === "group" ? groupStatuses : studentStatuses;
-    const tone = { faol: "green", sinovda: "amber", rejalashtirilgan: "amber", muzlatilgan: "purple", bitirgan: "blue", tugagan: "blue", ketgan: "gray", bekor_qilingan: "red" }[value] || "gray";
+    const names = type === "group" ? groupStatuses : type === "session" ? sessionStatuses : studentStatuses;
+    const tone = { faol: "green", otilgan: "green", sinovda: "amber", rejalashtirilgan: "amber", muzlatilgan: "purple", bitirgan: "blue", tugagan: "blue", ketgan: "gray", bekor_qilingan: "red" }[value] || "gray";
     return `<span class="pill ${tone}">${esc(names[value] || value || "Belgilanmagan")}</span>`;
 }
 function leadStatus(row) { const status = row.status || lookup("statuses", row.status_id); return status ? `<span class="pill ${status.is_won ? "green" : status.is_lost ? "red" : "purple"}">${esc(status.name)}</span>` : '<span class="pill gray">Bosqichsiz</span>'; }
@@ -222,6 +231,8 @@ function namedCell(row, subtitle = "") { return `<button class="cell-link" type=
 function branchLabel(row) { return esc(row.branch?.name || lookup("branches", row.branch_id)?.name || (row.branch_id == null ? "Barcha filiallar" : `Filial #${row.branch_id}`)); }
 function capacityCell(row) { const percent = Math.min(100, row.current_students / row.max_students * 100); return `<strong>${row.current_students}</strong> <span class="muted">/ ${row.max_students}</span><div class="capacity-track"><span style="width:${percent}%"></span></div>`; }
 const columns = {
+    schedules: [["Guruh", (r) => `<button class="cell-link" type="button" data-detail="${r.id}">${esc(r.group.name)}</button><span class="cell-sub">${branchLabel(r.group)}</span>`], ["Hafta kuni", (r) => esc(weekdays[r.weekday])], ["Vaqt", (r) => `<span class="time-label">${timeLabel(r.start_time)}–${timeLabel(r.end_time)}</span>`], ["Xona", (r) => esc(r.room.name)], ["O‘qituvchi", (r) => esc(fullName(r.group.teacher))], ["Guruh holati", (r) => statusPill(r.group.status, "group")]],
+    sessions: [["Dars / guruh", (r) => `<button class="cell-link" type="button" data-detail="${r.id}">${esc(r.group.name)}</button><span class="cell-sub">${esc(r.topic || "Mavzu hali kiritilmagan")}</span>`], ["Sana", (r) => dateLabel(r.date)], ["Vaqt", (r) => `<span class="time-label">${timeLabel(r.start_time)}–${timeLabel(r.end_time)}</span>`], ["O‘qituvchi", (r) => esc(fullName(r.teacher))], ["Xona", (r) => `${esc(r.room.name)}<span class="cell-sub">${branchLabel(r.group)}</span>`], ["Holati", (r) => statusPill(r.status, "session")]],
     students: [["O‘quvchi", (r) => personCell(r)], ["Filial", (r) => branchLabel(r)], ["Ota-ona telefoni", (r) => esc(r.parent_phone)], ["Manba", (r) => esc(r.source?.name || "To‘g‘ridan-to‘g‘ri")], ["Balans", (r) => `<span class="${Number(r.balance) < 0 ? "balance-negative" : "balance-positive"}">${money.format(r.balance)} so‘m</span>`], ["Holati", (r) => statusPill(r.status)]],
     groups: [["Guruh / kurs", (r) => namedCell(r, r.course.name)], ["Filial / xona", (r) => `${branchLabel(r)}<span class="cell-sub">${esc(r.room.name)}</span>`], ["O‘qituvchi", (r) => `<div class="person-cell">${avatar(fullName(r.teacher), "small")} ${esc(fullName(r.teacher))}</div>`], ["O‘quvchilar", capacityCell], ["Oylik narx", (r) => `${money.format(r.effective_price)}<span class="cell-sub">so‘m${r.price === null ? " · kurs narxi" : ""}</span>`], ["Holati", (r) => statusPill(r.status, "group")]],
     leads: [["Lid", (r) => personCell(r)], ["Qiziqqan kursi", (r) => esc(r.course?.name || "Aniqlanmagan")], ["Manba", (r) => esc(r.source?.name || "Belgilanmagan")], ["Mas’ul", (r) => esc(r.assignee ? fullName(r.assignee) : "Biriktirilmagan")], ["Bosqich", leadStatus], ["Murojaat sanasi", (r) => dateLabel(r.created_at)]],
@@ -254,6 +265,7 @@ function recordCard(row, index) {
     return `<article class="entity-card"><div class="entity-top"><span class="entity-icon ${tone}">${icon(module)}</span>${menu}</div>${title}<p class="entity-description">${esc(row.code || "")}</p><div class="entity-bottom"><span class="pill ${row.is_system ? "purple" : "gray"}">${row.is_system ? "Tizim roli" : "Maxsus rol"}</span><button class="text-button" type="button" data-detail="${key}">Batafsil ${icon("arrow")}</button></div></article>`;
 }
 function filtersFor(module) {
+    if (["schedules", "sessions"].includes(module)) return [{ key: "group_id", label: "Barcha guruhlar", options: sourceOptions("groups") }, { key: module === "schedules" ? "weekday" : "status", label: module === "schedules" ? "Haftaning barcha kunlari" : "Barcha holatlar", options: enumOptions(module === "schedules" ? weekdays : sessionStatuses) }, { key: "teacher_id", label: "Barcha o‘qituvchilar", options: sourceOptions("teachers") }];
     if (module === "students") return [{ key: "status", label: "Barcha holatlar", options: enumOptions(studentStatuses) }, { key: "debt", label: "Barcha balanslar", options: [{ value: "debt", label: "Qarzdorlar" }, { value: "positive", label: "Musbat balans" }] }];
     if (module === "groups") return [{ key: "status", label: "Barcha holatlar", options: enumOptions(groupStatuses) }, { key: "course_id", label: "Barcha kurslar", options: sourceOptions("courses") }];
     if (module === "leads") return [{ key: "status_id", label: "Barcha bosqichlar", options: sourceOptions("statuses") }, { key: "assigned_to", label: "Barcha mas’ullar", options: sourceOptions("employees") }];
@@ -267,6 +279,12 @@ function sourceOptions(source, values = {}, current = null) {
     if (state.editor?.module === "groups") {
         if (["teachers", "rooms"].includes(source)) rows = rows.filter((r) => r.branch_id === Number(values.branch_id) || (r.id === Number(current) && values.branch_id === state.editor.row?.branch_id));
         if (["teachers", "rooms", "branches", "courses"].includes(source)) rows = rows.filter((r) => r.is_active || r.id === Number(current));
+    }
+    if (source === "groups" && state.branch) rows = rows.filter((r) => r.branch_id === Number(state.branch) || r.id === Number(current));
+    if (["schedules", "sessions"].includes(state.editor?.module)) {
+        const group = lookup("groups", values.group_id);
+        if (["rooms", "teachers"].includes(source)) rows = rows.filter((r) => group && r.branch_id === group.branch_id && (r.is_active || r.id === Number(current)));
+        if (source === "groups") rows = rows.filter((r) => ["faol", "rejalashtirilgan"].includes(r.status) || r.id === Number(current));
     }
     return rows.map((r) => ({ value: r.id, label: r.name || fullName(r), avatar: r.first_name ? fullName(r) : undefined, hint: source === "rooms" ? `${r.capacity} o‘rin · ${lookup("branches", r.branch_id)?.name || ""}` : r.phone || (source === "courses" ? `${money.format(r.price)} so‘m / oy` : "") }));
 }
@@ -284,9 +302,25 @@ function filterRows(rows) {
         return true;
     });
 }
+function timetableControls() {
+    if (!["schedules", "sessions"].includes(state.view)) return "";
+    return `<div class="timetable-controls"><div class="timetable-caption">${icon(state.view)}<span>${state.view === "schedules" ? "Doimiy haftalik reja" : "Darslar taqvimi"}<small>Vaqtlar Toshkent vaqti bilan · UTC+5</small></span></div>${state.view === "sessions" ? `<div class="date-range"><label>Boshlanish<input type="date" data-filter="date_from" aria-label="Davr boshlanishi" value="${esc(state.filters.date_from || "")}"></label><span>—</span><label>Tugash<input type="date" data-filter="date_to" aria-label="Davr tugashi" value="${esc(state.filters.date_to || "")}"></label></div>` : '<p>Guruhning o‘qish muddati davomida amal qiladi.</p>'}${canWrite() ? `<button type="button" class="button secondary" data-action="generate-sessions">${icon("sessions")}Jadvaldan darslar yaratish</button>` : ""}</div>`;
+}
+function timetableCard(row, schedule = false) {
+    const teacher = schedule ? row.group.teacher : row.teacher;
+    return `<article class="timetable-card tone-${toneId(row.group_id)}${row.status === "bekor_qilingan" ? " cancelled" : ""}"><div class="timetable-card-top"><span class="time-label">${timeLabel(row.start_time)}–${timeLabel(row.end_time)}</span><button class="icon-button" type="button" data-menu="${row.id}" aria-label="${esc(recordName(row))} — amallar">${icon("more")}</button></div><button class="cell-link timetable-name" type="button" data-detail="${row.id}">${esc(row.group.name)}</button>${!schedule ? `<p class="lesson-topic">${esc(row.topic || "Mavzu hali kiritilmagan")}</p>` : ""}<div class="timetable-meta"><span>${icon("rooms")}${esc(row.room.name)}</span><span>${icon("teachers")}${esc(fullName(teacher))}</span></div>${schedule ? `<span class="cell-sub">${dateLabel(row.group.start_date)} — ${row.group.end_date ? dateLabel(row.group.end_date) : "davom etmoqda"}</span>${!["faol", "rejalashtirilgan"].includes(row.group.status) ? statusPill(row.group.status, "group") : ""}` : `<div class="lesson-footer">${statusPill(row.status, "session")}${row.status === "rejalashtirilgan" && canWrite() ? `<button class="text-button" type="button" data-session-complete="${row.id}">${icon("check")}O‘tildi</button>` : ""}</div>`}</article>`;
+}
+function renderTimetable(rows) {
+    if (state.mode === "week") return `<div class="week-board${state.filters.weekday ? " single-day" : ""}">${Object.entries(weekdays).filter(([day]) => !state.filters.weekday || String(state.filters.weekday) === day).map(([day, name]) => {
+        const slots = rows.filter((r) => String(r.weekday) === day);
+        return `<section class="week-day"><div class="week-day-heading"><h3>${name}</h3><span>${slots.length} dars</span>${canWrite() ? `<button class="icon-button" type="button" data-create-day="${day}" aria-label="${name} kuniga jadval qo‘shish">${icon("plus")}</button>` : ""}</div>${slots.length ? slots.map((row) => timetableCard(row, true)).join("") : '<div class="day-free">Erkin kun<span>Bu sahifada dars yo‘q</span></div>'}</section>`;
+    }).join("")}</div>`;
+    const dates = [...new Set(rows.map((r) => r.date))];
+    return `<div class="lesson-agenda">${dates.map((date) => `<section class="agenda-day"><div class="agenda-date"><strong>${Number(date.slice(8))}</strong><span>${shortMonths[Number(date.slice(5, 7)) - 1]} ${date.slice(0, 4)}</span><b>${weekdays[new Date(`${date}T12:00:00`).getDay() || 7]}</b></div><div class="agenda-lessons">${rows.filter((r) => r.date === date).map((row) => timetableCard(row)).join("")}</div></section>`).join("")}</div>`;
+}
 function listShell() {
     const def = moduleDefinitions[state.view];
-    $("page-content").innerHTML = `<section class="panel data-panel"><div class="list-top"><div class="list-title"><h2>${esc(def.title)}</h2><span id="list-count" class="count-badge">—</span></div><div class="list-actions">${def.modes.length > 1 ? `<div class="view-toggle" role="group" aria-label="Ko‘rinish">${def.modes.map((mode) => `<button type="button" data-mode="${mode}" class="${state.mode === mode ? "active" : ""}" aria-label="${mode === "table" ? "Jadval" : mode === "kanban" ? "Kanban" : mode === "workflow" ? "Bosqichlar" : "Kartochkalar"} ko‘rinishi" aria-pressed="${state.mode === mode}">${icon(mode === "kanban" || mode === "workflow" ? "statuses" : mode)}</button>`).join("")}</div>` : ""}<button class="icon-button bordered" type="button" data-action="refresh" aria-label="Ro‘yxatni yangilash">${icon("refresh")}</button></div></div><div class="toolbar"><div class="search-field">${icon("search")}<input id="record-search" data-filter="search" placeholder="${esc(def.title)} bo‘yicha qidirish…" aria-label="Ro‘yxatdan qidirish" autocomplete="off" value="${esc(state.filters.search || "")}"></div>${filtersFor(state.view).map((filter) => `<select id="filter-${filter.key}" data-filter="${filter.key}" data-label="${esc(filter.label)}"><option value="">${esc(filter.label)}</option>${filter.options.map((option) => `<option value="${esc(option.value)}" ${String(state.filters[filter.key]) === String(option.value) ? "selected" : ""}>${esc(option.label)}</option>`).join("")}</select>`).join("")}<button class="text-button" type="button" data-action="clear-filters" ${Object.values(state.filters).some(Boolean) ? "" : "hidden"}>Tozalash</button></div><div id="bulk-bar" class="bulk-bar" hidden></div><div id="records"></div><div class="table-footer"><span id="result-count" role="status"></span><div class="pagination"><button class="icon-button" type="button" id="previous-page" data-page="-1" aria-label="Oldingi sahifa">${icon("left")}</button><span class="page-position" id="page-position">1 / 1</span><button class="icon-button" type="button" id="next-page" data-page="1" aria-label="Keyingi sahifa">${icon("right")}</button></div></div></section>`;
+    $("page-content").innerHTML = `<section class="panel data-panel"><div class="list-top"><div class="list-title"><h2>${esc(def.title)}</h2><span id="list-count" class="count-badge">—</span></div><div class="list-actions">${def.modes.length > 1 ? `<div class="view-toggle" role="group" aria-label="Ko‘rinish">${def.modes.map((mode) => `<button type="button" data-mode="${mode}" class="${state.mode === mode ? "active" : ""}" aria-label="${mode === "table" ? "Jadval" : mode === "kanban" ? "Kanban" : mode === "workflow" ? "Bosqichlar" : mode === "week" ? "Haftalik" : mode === "agenda" ? "Kunlik darslar" : "Kartochkalar"} ko‘rinishi" aria-pressed="${state.mode === mode}">${icon(mode === "kanban" || mode === "workflow" ? "statuses" : mode === "week" ? "schedules" : mode === "agenda" ? "sessions" : mode)}</button>`).join("")}</div>` : ""}<button class="icon-button bordered" type="button" data-action="refresh" aria-label="Ro‘yxatni yangilash">${icon("refresh")}</button></div></div><div class="toolbar"><div class="search-field">${icon("search")}<input id="record-search" data-filter="search" placeholder="${esc(def.title)} bo‘yicha qidirish…" aria-label="Ro‘yxatdan qidirish" autocomplete="off" value="${esc(state.filters.search || "")}"></div>${filtersFor(state.view).map((filter) => `<select id="filter-${filter.key}" data-filter="${filter.key}" data-label="${esc(filter.label)}"><option value="">${esc(filter.label)}</option>${filter.options.map((option) => `<option value="${esc(option.value)}" ${String(state.filters[filter.key]) === String(option.value) ? "selected" : ""}>${esc(option.label)}</option>`).join("")}</select>`).join("")}<button class="text-button" type="button" data-action="clear-filters" ${Object.values(state.filters).some(Boolean) ? "" : "hidden"}>Tozalash</button></div>${timetableControls()}<div id="bulk-bar" class="bulk-bar" hidden></div><div id="records"></div><div class="table-footer"><span id="result-count" role="status"></span><div class="pagination"><button class="icon-button" type="button" id="previous-page" data-page="-1" aria-label="Oldingi sahifa">${icon("left")}</button><span class="page-position" id="page-position">1 / 1</span><button class="icon-button" type="button" id="next-page" data-page="1" aria-label="Keyingi sahifa">${icon("right")}</button></div></div></section>`;
     enhanceSelects($("page-content"));
 }
 function renderRecords() {
@@ -303,6 +337,8 @@ function renderRecords() {
     document.querySelector('[data-action="clear-filters"]').hidden = !Object.values(state.filters).some(Boolean);
     if (!visible.length) {
         $("records").innerHTML = `<div class="empty-state"><div class="empty-symbol">${icon(def.icon)}</div><h3>${Object.values(state.filters).some(Boolean) ? "Mos natija topilmadi" : "Bu yerda yangi boshlanish bor"}</h3><p>${Object.values(state.filters).some(Boolean) ? "Qidiruv yoki filtrlarni o‘zgartirib ko‘ring." : `${esc(def.singular)} qo‘shib, markazingiz ma’lumotlarini to‘ldirishni boshlang.`}</p>${canWrite() ? `<button type="button" class="button secondary" data-action="create">${icon("plus")}${esc(def.add)}</button>` : ""}</div>`;
+    } else if (["week", "agenda"].includes(state.mode)) {
+        $("records").innerHTML = renderTimetable(visible);
     } else if (state.mode === "kanban") {
         const stages = [...state.options.statuses];
         if (visible.some((row) => !row.status)) stages.push({ id: "", name: "Bosqichsiz", position: 999 });
@@ -367,7 +403,7 @@ async function refreshOptions() {
     enhanceSelects($("app-view")); renderNavigation();
 }
 function renderNavigation() {
-    const sections = [["BOSHQARUV", ["overview"]], ["O‘QUV JARAYONI", ["students", "groups", "courses"]], ["CRM VA QABUL", ["leads"]], ["JAMOA VA TASHKILOT", ["employees", "teachers", "branches", "rooms"]], ["SOZLAMALAR", ["sources", "statuses", "roles", "assignments"]]];
+    const sections = [["BOSHQARUV", ["overview"]], ["O‘QUV JARAYONI", ["students", "groups", "schedules", "sessions", "courses"]], ["CRM VA QABUL", ["leads"]], ["JAMOA VA TASHKILOT", ["employees", "teachers", "branches", "rooms"]], ["SOZLAMALAR", ["sources", "statuses", "roles", "assignments"]]];
     $("navigation").innerHTML = sections.map(([caption, keys]) => {
         const allowed = keys.filter((key) => key === "overview" || canRead(key));
         return allowed.length ? `<div class="nav-section"><div class="nav-caption">${caption}</div>${allowed.map((key) => `<a class="nav-link ${state.view === key ? "active" : ""}" href="#${key}" ${state.view === key ? 'aria-current="page"' : ""}>${icon(key === "overview" ? "dashboard" : moduleDefinitions[key].icon)}<span>${key === "overview" ? "Umumiy ko‘rinish" : moduleDefinitions[key].title}</span>${key === "leads" ? '<span class="nav-tag">CRM</span>' : ""}</a>`).join("")}</div>` : "";
@@ -416,6 +452,7 @@ async function loadOverview() {
 
 function rowValues(module, row = {}) {
     const values = { ...row };
+    if (["schedules", "sessions"].includes(module)) for (const key of ["start_time", "end_time"]) if (values[key]) values[key] = timeLabel(values[key]);
     if (["students", "leads"].includes(module)) {
         values.branch_id = row.branch?.id;
         values.source_id = row.source?.id;
@@ -434,6 +471,8 @@ async function openEditor(module = state.view, row = null, prefill = {}, afterLe
     try { await refreshOptions(); } catch (error) { return toast(error.message, true); }
     const def = moduleDefinitions[module];
     const values = { ...rowValues(module, row || {}), ...prefill };
+    if (["schedules", "sessions"].includes(module) && !row && !values.group_id && state.filters.group_id) values.group_id = Number(state.filters.group_id);
+    if (module === "sessions" && !row && !values.date) values.date = state.filters.date_from || isoToday();
     if (!row && module === "leads" && values.status_id == null && !("status_id" in prefill)) values.status_id = state.options.statuses.find((status) => !status.is_won && !status.is_lost)?.id;
     const fields = editableFields(module, Boolean(row));
     if (!row && values.branch_id == null && state.branch) values.branch_id = Number(state.branch);
@@ -470,6 +509,16 @@ async function openEditor(module = state.view, row = null, prefill = {}, afterLe
 }
 function updateEditorHints(changed = "") {
     const editor = state.editor; if (!editor) return;
+    if (["schedules", "sessions"].includes(editor.module)) {
+        const group = lookup("groups", $("edit-group_id").value), values = { group_id: group?.id };
+        for (const key of editor.module === "sessions" ? ["room_id", "teacher_id"] : ["room_id"]) {
+            const select = $(`edit-${key}`), source = key === "room_id" ? "rooms" : "teachers";
+            const current = changed === "group_id" ? group?.[key] : select.value || (!editor.row ? group?.[key] : "");
+            fillSelect(select, sourceOptions(source, values, current), group ? "Tanlang" : "Avval guruhni tanlang", current);
+        }
+        if (editor.module === "sessions") { $("edit-date").min = group?.start_date || ""; $("edit-date").max = group?.end_date || ""; }
+        $("editor-description").textContent = group ? `${fullName(lookup("employees", group.teacher_id))} · ${dateLabel(group.start_date)} — ${group.end_date ? dateLabel(group.end_date) : "davom etmoqda"}. Xona, guruh va o‘qituvchi bandligi tekshiriladi.` : "Avval guruhni tanlang. Vaqtlar Toshkent vaqti bilan kiritiladi.";
+    }
     if (editor.module === "groups") {
         const values = { branch_id: Number($("edit-branch_id").value) };
         if (changed === "branch_id") for (const key of ["teacher_id", "room_id"]) {
@@ -531,7 +580,8 @@ async function saveEditor(event) {
 function detailValue(f, values) {
     const value = values[f.key];
     if (value == null || value === "") return "Belgilanmagan";
-    if (f.type === "select") return esc(f.choices?.find((o) => o.value === value)?.label || sourceOptions(f.source).find((o) => Number(o.value) === Number(value))?.label || value);
+    if (f.type === "select") return esc(f.choices?.find((o) => String(o.value) === String(value))?.label || sourceOptions(f.source).find((o) => Number(o.value) === Number(value))?.label || value);
+    if (f.type === "time") return timeLabel(value);
     if (f.type === "checkbox") return value ? "Ha" : "Yo‘q";
     if (f.type === "date") return dateLabel(value);
     if (["price", "monthly_budget"].includes(f.key)) return `${money.format(value)} so‘m`;
@@ -539,11 +589,11 @@ function detailValue(f, values) {
 }
 function openDetail(row) {
     const module = state.view, def = moduleDefinitions[module], name = recordName(row), values = rowValues(module, row);
-    const fields = def.fields.filter((f) => f.key && !["password", "photo_url", "comment", "description", "bio", "lost_reason"].includes(f.key));
+    const fields = def.fields.filter((f) => f.key && !["password", "photo_url", "comment", "description", "bio", "lost_reason", "note"].includes(f.key));
     const phone = row.phone || lookup("employees", row.employee_id)?.phone;
-    let badge = row.is_superadmin ? protectedAdminPill() : row.status && module === "leads" ? leadStatus(row) : row.status ? statusPill(row.status, module === "groups" ? "group" : "student") : typeof row.is_active === "boolean" ? activePill(row.is_active) : "";
-    const note = row.comment || row.description || row.bio;
-    $("detail-content").innerHTML = `<div class="detail-cover"><span class="section-kicker">${esc(def.group)}</span><span class="detail-number">#${esc(keyOf(row))}</span><button class="icon-button" data-close="detail-dialog" type="button" aria-label="Profilni yopish">${icon("close")}</button></div><div class="detail-intro">${avatar(name, "large")}<h2 id="detail-title">${esc(name)}</h2><p>${esc(module === "teachers" ? row.specialization || "O‘qituvchi" : module === "employees" ? row.position : def.singular)}</p><div class="detail-badges">${badge}${row.created_at ? `<span class="pill gray no-dot">${dateLabel(row.created_at)}</span>` : ""}</div></div><div class="detail-body"><div class="detail-heading">Ma’lumotlar</div><dl class="detail-grid">${fields.map((f) => `<div class="${f.full ? "full" : ""}"><dt>${esc(f.label)}</dt><dd>${detailValue(f, values)}</dd></div>`).join("")}${module === "students" ? `<div><dt>Joriy balans</dt><dd class="${Number(row.balance) < 0 ? "balance-negative" : "balance-positive"}">${money.format(row.balance)} so‘m</dd></div>` : ""}${module === "groups" ? `<div><dt>O‘quvchilar</dt><dd>${row.current_students} / ${row.max_students}</dd></div><div><dt>Amaldagi oylik narx</dt><dd>${money.format(row.effective_price)} so‘m</dd></div>` : ""}</dl>${note ? `<div class="detail-heading">${module === "teachers" ? "Ustoz haqida" : "Izoh"}</div><div class="detail-note">${esc(note)}</div>` : ""}${row.lost_reason ? `<div class="detail-heading" style="margin-top:20px">Yo‘qotilish sababi</div><div class="detail-note">${esc(row.lost_reason)}</div>` : ""}</div><div class="detail-actions">${canWrite() && !protectedAssignment(row) ? `<button type="button" class="button primary" data-edit="${esc(keyOf(row))}">${icon("edit")}Tahrirlash</button>` : ""}${phone ? `<a class="button secondary" href="tel:${phone.replace(/[^+0-9]/g, "")}">${icon("phone")}Telefon qilish</a>` : ""}${module === "leads" && !row.student && canWrite() ? `<button class="button secondary" type="button" data-convert="${row.id}">O‘quvchiga aylantirish</button>` : ""}</div>`;
+    let badge = row.is_superadmin ? protectedAdminPill() : row.status && module === "leads" ? leadStatus(row) : row.status ? statusPill(row.status, module === "groups" ? "group" : module === "sessions" ? "session" : "student") : typeof row.is_active === "boolean" ? activePill(row.is_active) : "";
+    const note = row.comment || row.description || row.bio || row.note;
+    $("detail-content").innerHTML = `<div class="detail-cover"><span class="section-kicker">${esc(def.group)}</span><span class="detail-number">#${esc(keyOf(row))}</span><button class="icon-button" data-close="detail-dialog" type="button" aria-label="Profilni yopish">${icon("close")}</button></div><div class="detail-intro">${avatar(name, "large")}<h2 id="detail-title">${esc(name)}</h2><p>${esc(module === "teachers" ? row.specialization || "O‘qituvchi" : module === "employees" ? row.position : def.singular)}</p><div class="detail-badges">${badge}${row.created_at ? `<span class="pill gray no-dot">${dateLabel(row.created_at)}</span>` : ""}</div></div><div class="detail-body"><div class="detail-heading">Ma’lumotlar</div><dl class="detail-grid">${fields.map((f) => `<div class="${f.full ? "full" : ""}"><dt>${esc(f.label)}</dt><dd>${detailValue(f, values)}</dd></div>`).join("")}${module === "students" ? `<div><dt>Joriy balans</dt><dd class="${Number(row.balance) < 0 ? "balance-negative" : "balance-positive"}">${money.format(row.balance)} so‘m</dd></div>` : ""}${module === "groups" ? `<div><dt>O‘quvchilar</dt><dd>${row.current_students} / ${row.max_students}</dd></div><div><dt>Amaldagi oylik narx</dt><dd>${money.format(row.effective_price)} so‘m</dd></div>` : ""}</dl>${note ? `<div class="detail-heading">${module === "teachers" ? "Ustoz haqida" : "Izoh"}</div><div class="detail-note">${esc(note)}</div>` : ""}${row.lost_reason ? `<div class="detail-heading" style="margin-top:20px">Yo‘qotilish sababi</div><div class="detail-note">${esc(row.lost_reason)}</div>` : ""}</div><div class="detail-actions">${module === "groups" ? `<button type="button" class="button secondary" data-group-view="schedules" data-group-id="${row.id}">${icon("schedules")}Haftalik jadval</button><button type="button" class="button secondary" data-group-view="sessions" data-group-id="${row.id}">${icon("sessions")}Darslar</button>` : ""}${canWrite() && !protectedAssignment(row) ? `<button type="button" class="button primary" data-edit="${esc(keyOf(row))}">${icon("edit")}Tahrirlash</button>` : ""}${phone ? `<a class="button secondary" href="tel:${phone.replace(/[^+0-9]/g, "")}">${icon("phone")}Telefon qilish</a>` : ""}${module === "leads" && !row.student && canWrite() ? `<button class="button secondary" type="button" data-convert="${row.id}">O‘quvchiga aylantirish</button>` : ""}</div>`;
     $("detail-dialog").showModal();
 }
 let rowMenu = null;
@@ -554,12 +604,12 @@ function showRowMenu(button, row) {
     const actions = [{ key: "detail", label: "Batafsil ko‘rish", icon: "eye" }];
     if (canWrite()) {
         if (!protectedAssignment(row) && !(["employees", "sources"].includes(module) && !row.is_active)) actions.push({ key: "edit", label: "Tahrirlash", icon: "edit" });
-        if (["groups", "students"].includes(module)) actions.push({ key: "status", label: "Holatini o‘zgartirish", icon: "refresh" });
+        if (["groups", "students", "sessions"].includes(module)) actions.push({ key: "status", label: "Holatini o‘zgartirish", icon: "refresh" });
         if (module === "leads" && !row.student) actions.push({ key: "convert", label: "O‘quvchiga aylantirish", icon: "students" });
         if (["courses", "sources", "employees"].includes(module) && !row.is_superadmin) {
             if (module !== "employees" || !row.is_active) actions.push({ key: "toggle", label: row.is_active ? "Faolsizlantirish" : "Faollashtirish", icon: "refresh" });
         }
-        if (!def.noDelete && !row.is_superadmin && !protectedAssignment(row) && !(module === "roles" && row.is_system) && !(module === "groups" && row.status === "bekor_qilingan") && !(["rooms", "employees"].includes(module) && !row.is_active)) actions.push({ key: "delete", label: module === "groups" ? "Guruhni bekor qilish" : module === "students" ? "Ketgan deb belgilash" : ["rooms", "employees"].includes(module) ? "Faolsizlantirish" : "O‘chirish", icon: "trash", destructive: true });
+        if (!def.noDelete && !row.is_superadmin && !protectedAssignment(row) && !(module === "roles" && row.is_system) && !(["groups", "sessions"].includes(module) && row.status === "bekor_qilingan") && !(["rooms", "employees"].includes(module) && !row.is_active)) actions.push({ key: "delete", label: module === "sessions" ? "Darsni bekor qilish" : module === "groups" ? "Guruhni bekor qilish" : module === "students" ? "Ketgan deb belgilash" : ["rooms", "employees"].includes(module) ? "Faolsizlantirish" : "O‘chirish", icon: "trash", destructive: true });
     }
     rowMenu = document.createElement("div"); rowMenu.className = "row-menu"; rowMenu.setAttribute("role", "menu");
     rowMenu.innerHTML = actions.map((a) => `<button type="button" role="menuitem" data-row-action="${a.key}" data-row-key="${esc(keyOf(row))}" class="${a.destructive ? "destructive" : ""}">${icon(a.icon)}${a.label}</button>`).join("");
@@ -579,12 +629,35 @@ function openConfirm({ title, description, submit = "Tasdiqlash", danger = false
     setMessage("confirm-error"); enhanceSelects($("confirm-dialog")); $("confirm-dialog").showModal();
 }
 function changeStatus(row) {
-    const module = state.view, statuses = module === "groups" ? groupStatuses : studentStatuses;
+    const module = state.view, statuses = module === "groups" ? groupStatuses : module === "sessions" ? sessionStatuses : studentStatuses;
     openConfirm({ title: "Holatni o‘zgartirish", description: `${recordName(row)} uchun yangi holatni tanlang.`, submit: "Holatni saqlash", extra: `<div class="field"><label for="new-status">Yangi holat</label><select id="new-status">${enumOptions(statuses).map((o) => `<option value="${o.value}" ${row.status === o.value ? "selected" : ""}>${o.label}</option>`).join("")}</select></div>`, action: async () => api(`${recordPath(module, row)}/status`, jsonRequest("PATCH", { status: $("new-status").value })) });
 }
+async function openGenerateSessions() {
+    await refreshOptions();
+    const groups = state.options.groups.filter((g) => ["faol", "rejalashtirilgan"].includes(g.status) && (!state.branch || g.branch_id === Number(state.branch)));
+    if (!groups.length) return toast("Avval faol yoki rejalashtirilgan guruh yarating.", true);
+    openConfirm({ title: "Jadvaldan darslar yaratish", description: "Tanlangan davrdagi hafta kunlari bo‘yicha darslar yaratiladi. Mavjud va bekor qilingan darslar qayta yaratilmaydi. Butun davr birga tekshiriladi.", submit: "Darslarni yaratish", extra: `<div class="generation-fields"><div class="field"><label for="generate-group">Guruh</label><select id="generate-group" required><option value="">Guruhni tanlang</option>${groups.map((g) => `<option value="${g.id}" ${String(g.id) === state.filters.group_id ? "selected" : ""}>${esc(g.name)}</option>`).join("")}</select></div><div class="generation-dates"><div class="field"><label for="generate-from">Boshlanish sanasi</label><input id="generate-from" type="date" required value="${isoToday()}"></div><div class="field"><label for="generate-to">Tugash sanasi</label><input id="generate-to" type="date" required value="${isoToday()}"></div></div><p class="generation-hint">1–93 kun tanlang. O‘qituvchi va xona haftalik jadvaldan olinadi.</p></div>`, action: async () => {
+        const body = { group_id: Number($("generate-group").value), date_from: $("generate-from").value, date_to: $("generate-to").value };
+        if (!body.group_id || !body.date_from || !body.date_to) throw new Error("Guruh va sanalarni to‘ldiring.");
+        const result = await api("/lesson-sessions/generate", jsonRequest("POST", body));
+        toast(`${result.created} ta yangi dars. ${result.skipped} ta mavjud dars saqlandi.`);
+        if (state.view !== "sessions") await navigate("sessions");
+        state.filters = { group_id: String(body.group_id), date_from: body.date_from, date_to: body.date_to }; state.page = 1; listShell();
+    } });
+    updateGenerateBounds();
+}
+function updateGenerateBounds() {
+    const group = lookup("groups", $("generate-group")?.value);
+    if (!group) return;
+    for (const key of ["generate-from", "generate-to"]) {
+        const input = $(key); input.min = group.start_date; input.max = group.end_date || "";
+        if (!input.value || input.value < group.start_date) input.value = group.start_date;
+        if (group.end_date && input.value > group.end_date) input.value = group.end_date;
+    }
+}
 function deleteRecord(row) {
-    const module = state.view, soft = ["groups", "students", "employees", "rooms"].includes(module);
-    openConfirm({ title: module === "groups" ? "Guruhni bekor qilish" : module === "students" ? "O‘quvchini ketgan deb belgilash" : soft ? "Yozuvni faolsizlantirish" : "Yozuvni o‘chirish", description: `${recordName(row)}. ${soft ? "Ma’lumotlar tarixda saqlanadi." : "Yozuv o‘chiriladi. Davom etishdan oldin to‘g‘ri yozuvni tanlaganingizni tekshiring."}`, danger: true, submit: soft ? "Tasdiqlash" : "O‘chirish", action: () => api(recordPath(module, row), { method: "DELETE" }) });
+    const module = state.view, soft = ["groups", "students", "employees", "rooms", "sessions"].includes(module);
+    openConfirm({ title: module === "sessions" ? "Darsni bekor qilish" : module === "groups" ? "Guruhni bekor qilish" : module === "students" ? "O‘quvchini ketgan deb belgilash" : soft ? "Yozuvni faolsizlantirish" : "Yozuvni o‘chirish", description: `${recordName(row)}. ${module === "schedules" ? "Faqat haftalik reja o‘chiriladi. Avval yaratilgan darslar saqlanadi." : soft ? "Ma’lumotlar tarixda saqlanadi." : "Yozuv o‘chiriladi. Davom etishdan oldin to‘g‘ri yozuvni tanlaganingizni tekshiring."}`, danger: true, submit: soft ? "Tasdiqlash" : "O‘chirish", action: () => api(recordPath(module, row), { method: "DELETE" }) });
 }
 function toggleRecord(row) {
     const module = state.view, active = !row.is_active;
@@ -685,6 +758,7 @@ document.addEventListener("input", (event) => {
 });
 document.addEventListener("change", (event) => {
     const element = event.target;
+    if (element.id === "generate-group") updateGenerateBounds();
     if (element.dataset.filter && element.dataset.filter !== "search") { state.filters[element.dataset.filter] = element.value; clearTimeout(filterTimer); applyFilters(); }
     if (element.id === "context-branch") { state.branch = element.value; state.page = 1; state.selected.clear(); refreshCurrent(); }
     if (element.dataset.editorField) updateEditorHints(element.dataset.editorField);
@@ -701,6 +775,9 @@ document.addEventListener("click", async (event) => {
         if (target.matches("a.nav-link")) closeMobileMenu();
         if (target.dataset.openView) { document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close()); await navigate(target.dataset.openView); return; }
         if (target.dataset.quickCreate) return openEditor(target.dataset.quickCreate);
+        if (target.dataset.createDay) return openEditor("schedules", null, { weekday: target.dataset.createDay });
+        if (target.dataset.groupView) { $("detail-dialog").close(); await navigate(target.dataset.groupView); state.filters = { group_id: target.dataset.groupId }; listShell(); await loadRecords(); return; }
+        if (target.dataset.sessionComplete) { const session = state.rows.find((r) => String(r.id) === target.dataset.sessionComplete); if (session) { changeStatus(session); $("new-status").value = "otilgan"; enhanceSelects($("confirm-dialog")); } return; }
         if (target.dataset.mode) { state.mode = target.dataset.mode; document.querySelectorAll("[data-mode]").forEach((button) => { button.classList.toggle("active", button.dataset.mode === state.mode); button.setAttribute("aria-pressed", String(button.dataset.mode === state.mode)); }); renderRecords(); return; }
         if (target.dataset.page) { const page = state.page + Number(target.dataset.page); if (page < 1 || page > state.pages) return; state.page = page; state.selected.clear(); moduleDefinitions[state.view].paged ? await loadRecords() : renderRecords(); return; }
         const key = target.dataset.detail ?? target.dataset.edit ?? target.dataset.menu ?? target.dataset.convert ?? target.dataset.rowKey ?? target.dataset.convertCreate;
@@ -724,6 +801,7 @@ document.addEventListener("click", async (event) => {
         const action = target.dataset.action;
         if (action === "create") await openEditor();
         if (action === "quick-lead") await openEditor("leads");
+        if (action === "generate-sessions") await openGenerateSessions();
         if (action === "refresh") { await refreshOptions(); await refreshCurrent(); }
         if (action === "clear-filters") { state.filters = {}; state.page = 1; state.selected.clear(); listShell(); await loadRecords(); }
         if (action === "clear-selection") { state.selected.clear(); renderRecords(); }

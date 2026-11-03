@@ -621,6 +621,77 @@ input:not([type=checkbox]), textarea, .select-trigger { font-size: 14px; }
 .kanban-card-bottom { font-size: 11px; }
 .kanban-card-top .pill { font-size: 10px; }
 .toast { font-size: 13px; }
+.timetable-controls { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 18px 24px; border-bottom: 1px solid var(--border, #e5eadd); background: #f8faf3; }
+.timetable-caption { display: flex; align-items: center; gap: 12px; color: #264c37; font-weight: 700; font-size: 14px; }
+.timetable-caption > svg { width: 24px; height: 24px; }
+.timetable-caption small { display: block; margin-top: 4px; color: #66785d; font-size: 11px; font-weight: 500; }
+.timetable-controls > p { font-size: 12px; color: #66785d; margin: 0; }
+.timetable-controls > .button { margin-left: auto; font-size: 12px; }
+.date-range { display: flex; align-items: center; gap: 10px; }
+.date-range label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: #52684b; }
+.date-range input { width: 145px; min-height: 36px; padding: 7px 9px; border: 1px solid #d7e0cd; border-radius: 8px; background: #fff; color: #273e31; font: inherit; font-size: 12px; }
+.week-board { display: grid; grid-template-columns: repeat(7, minmax(155px, 1fr)); gap: 1px; overflow-x: auto; background: #e5eadd; padding: 1px 0; }
+.week-day { min-width: 0; padding: 12px 9px 24px; background: #fafbf8; }
+.week-day-heading { display: flex; align-items: center; gap: 6px; min-height: 48px; padding: 0 4px 13px; }
+.week-day-heading h3 { margin: 0; font-size: 13px; }
+.week-day-heading > span { font-size: 10px; color: #75836d; white-space: nowrap; }
+.week-day-heading .icon-button { width: 25px; height: 25px; margin-left: auto; }
+.week-board.single-day { display: block; }
+.week-board.single-day .week-day { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; padding: 18px; }
+.week-board.single-day .week-day-heading { grid-column: 1 / -1; }
+.timetable-card { --slot-accent: #729a3d; --slot-wash: #edf5de; position: relative; padding: 14px 12px; margin-bottom: 12px; border: 1px solid #dce5d4; border-left: 3px solid var(--slot-accent); border-radius: 11px; background: linear-gradient(140deg, var(--slot-wash), #fff 70%); box-shadow: 0 3px 8px #233b2510; }
+.timetable-card.tone-1 { --slot-accent: #8b5cd1; --slot-wash: #f0e9fc; }
+.timetable-card.tone-2 { --slot-accent: #db9038; --slot-wash: #fff0d7; }
+.timetable-card.tone-3 { --slot-accent: #4485c9; --slot-wash: #e8f1fd; }
+.timetable-card.tone-4 { --slot-accent: #c65f83; --slot-wash: #fceaf1; }
+.timetable-card.cancelled { --slot-accent: #899180; --slot-wash: #f0f1ed; }
+.timetable-card.cancelled .time-label { text-decoration: line-through; }
+.timetable-card-top { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 10px; }
+.time-label { font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 750; white-space: nowrap; }
+.timetable-card-top .icon-button { width: 24px; height: 24px; flex-shrink: 0; }
+.timetable-name { font-size: 14px; text-align: left; overflow-wrap: anywhere; }
+.timetable-meta { display: grid; gap: 8px; margin: 14px 0; font-size: 12px; color: #52674c; }
+.timetable-meta > span { display: flex; align-items: center; gap: 7px; overflow-wrap: anywhere; }
+.timetable-meta svg { width: 15px; height: 15px; flex-shrink: 0; }
+.timetable-card > .cell-sub { font-size: 10px; line-height: 1.7; }
+.day-free { margin-top: 12px; padding: 27px 8px; border: 1px dashed #dbe3d2; border-radius: 11px; text-align: center; font-size: 12px; color: #6d805d; }
+.day-free span { display: block; margin-top: 7px; font-size: 10px; color: #87957b; }
+.lesson-agenda { padding: 8px 24px 24px; }
+.agenda-day { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 24px; padding-top: 24px; }
+.agenda-date { display: flex; flex-direction: column; align-items: flex-start; padding-top: 7px; }
+.agenda-date strong { font-size: 32px; line-height: 1.1; color: #294b34; }
+.agenda-date span { font-size: 11px; margin-top: 5px; color: #718265; }
+.agenda-date b { margin-top: 10px; font-size: 12px; font-weight: 600; }
+.agenda-lessons { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 14px; border-bottom: 1px solid #e6ebdf; padding-bottom: 12px; }
+.agenda-lessons .timetable-card { margin: 0 0 10px; padding: 16px; }
+.lesson-topic { font-size: 12px; line-height: 1.6; margin: 8px 0 0; color: #5f7256; overflow-wrap: anywhere; }
+.lesson-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: space-between; padding-top: 12px; border-top: 1px solid #e3e9da; }
+.lesson-footer .text-button { font-size: 11px; }
+.generation-fields { margin-top: 24px; text-align: left; }
+.generation-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px; }
+.generation-dates input { min-width: 0; width: 100%; }
+.generation-hint { font-size: 12px; color: #667c58; line-height: 1.7; }
+.detail-actions { flex-wrap: wrap; }
+@media (max-width: 760px) {
+    .timetable-controls { padding: 16px; gap: 16px; }
+    .timetable-controls > .button { margin-left: 0; width: 100%; justify-content: center; }
+    .date-range { width: 100%; gap: 8px; }
+    .date-range label { min-width: 0; flex: 1; }
+    .date-range input { width: 100%; min-width: 0; }
+    .week-board { display: block; padding: 0; }
+    .week-day { padding: 16px; border-bottom: 1px solid #e5eadd; }
+    .week-day-heading h3 { font-size: 15px; }
+    .week-day-heading > span { font-size: 12px; }
+    .week-day-heading { min-height: 36px; }
+    .day-free { margin-top: 0; padding: 16px; }
+    .timetable-card { padding: 16px; }
+    .lesson-agenda { padding: 0 16px 16px; }
+    .agenda-day { grid-template-columns: 1fr; gap: 15px; }
+    .agenda-date { flex-direction: row; align-items: baseline; gap: 8px; }
+    .agenda-date strong { font-size: 26px; }
+    .agenda-date b { margin-left: auto; }
+    .generation-dates { grid-template-columns: 1fr; }
+}
 .page-heading .button { font-size: 13px; min-height: 43px; }
 .page-position, .code-label { font-size: 11px; }
 .select-empty, .column-empty, .empty-small, .chart-empty { font-size: 12px; color: #7b8d68; }
