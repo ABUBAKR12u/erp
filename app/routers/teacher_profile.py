@@ -36,7 +36,7 @@ async def _load_profile(db, employee_id: int):
 @router.get("/", response_model=List[TeacherProfilesResponse])
 async def list_teacher_profiles(
     db: MyDb,
-    current_user=Depends(require_role("admin")),
+    current_user=Depends(require_role("admin", "boss")),
     specialization: str | None = None,
 ):
     stmt = select(TeacherProfiles).options(selectinload(TeacherProfiles.employee))
@@ -58,7 +58,7 @@ async def my_teacher_profile(
 async def get_teacher_profile(
     employee_id: int,
     db: MyDb,
-    current_user=Depends(require_role("admin")),
+    current_user=Depends(require_role("admin", "boss")),
 ):
     return await _load_profile(db, employee_id)
 

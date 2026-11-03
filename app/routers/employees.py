@@ -70,13 +70,16 @@ async def update_employee(employee_id: int, employee:EmployeesUpdate,db:MyDb , c
     if not employee_result.is_active:
         raise HTTPException(400, "Epmloyee is not active")
 
-    await check_ident(db, Branch , employee_result.branch_id)
+    await check_ident(db, Branch , employee.branch_id)
     result = await db.execute(select(Employees).where(Employees.phone==employee.phone , Employees.id != employee_id))
     user= result.scalars().first()
     if user:
         raise HTTPException(409 , "Employee already exists")
     update_user= employee.model_dump()
-    update_user["password"] = await hash_password(update_user["password"])
+    if update_user["password"]:
+        update_user["password"] = await hash_password(update_user["password"])
+    else:
+        update_user.pop("password")
 
     for field, value in update_user.items():
         setattr(employee_result, field, value)
@@ -88,6 +91,8 @@ async def update_employee(employee_id: int, employee:EmployeesUpdate,db:MyDb , c
 @router.patch("/{employee_id}")
 async def patch_employee(employee_id: int,db:MyDb, is_active:bool=True , current_user=Depends(require_role("admin","boss"))):
     employee_result = await check_ident(db , Employees , employee_id)
+    if employee_result.is_superadmin and not is_active:
+        raise HTTPException(403, "Asosiy administratorni faolsizlantirib bo'lmaydi")
     if employee_result.is_active:
         raise HTTPException(400, "Epmloyee is active")
     employee_result.is_active = is_active
@@ -99,10 +104,12 @@ async def patch_employee(employee_id: int,db:MyDb, is_active:bool=True , current
 @router.delete("/{employee_id}")
 async def delete_employee(employee_id: int, db:MyDb , current_user=Depends(require_role("boss" ,"admin"))):
     employee = await check_ident(db , Employees , employee_id)
-    if current_user.is_active is not False:
-        raise HTTPException(403, "Permission denied")
+    if employee.is_superadmin:
+        raise HTTPException(403, "Asosiy administratorni o'chirib bo'lmaydi")
+    if current_user.id == employee_id:
+        raise HTTPException(400, "O'zingizni faolsizlantira olmaysiz")
     employee.is_active = False
-    employee.fired_at=datetime.now(timezone.utc)
+    employee.fired_at=datetime.now(timezone.utc).date()
 
     await db.commit()
     return {"msg":"Employee deleted successfully"}

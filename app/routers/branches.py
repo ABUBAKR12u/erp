@@ -5,7 +5,8 @@ from sqlalchemy import select
 
 from app.database.Base import MyDb
 from app.model.branches import Branch
-from app.scheme.branches import BranchAdd, BranchResponse
+from app.scheme.branches import BranchAdd, BranchResponse, BranchUpdate
+from app.utils.checker import check_ident
 from app.utils.security import require_role
 
 router = APIRouter(tags=['Branches'] , prefix="/branches")
@@ -31,3 +32,15 @@ async def list_branches(db:MyDb , name:str=None , current_user=Depends(require_r
         result = await db.execute(select(Branch).where(Branch.name.ilike(f"%{name}%")))
 
     return result.scalars().all()
+
+
+@router.put("/{branch_id}")
+async def update_branch(branch_id: int, branch: BranchUpdate, db: MyDb, current_user=Depends(require_role("boss"))):
+    obj = await check_ident(db, Branch, branch_id)
+    find = await db.execute(select(Branch.id).where(Branch.code == branch.code, Branch.id != branch_id))
+    if find.scalar() is not None:
+        raise HTTPException(409, "Code already exists")
+    for field, value in branch.model_dump().items():
+        setattr(obj, field, value)
+    await db.commit()
+    return {"msg": "Branch updated successfully"}

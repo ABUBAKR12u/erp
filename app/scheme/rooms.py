@@ -1,9 +1,10 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class RoomBase(BaseModel):
     branch_id: int
     name: str
-    capacity: int
+    capacity: int = Field(gt=0, le=32767)
+    is_active: bool = True
 
 class RoomAdd(RoomBase):
     pass

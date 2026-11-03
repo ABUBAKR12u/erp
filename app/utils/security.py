@@ -49,15 +49,16 @@ async def create_refresh_token(user_id):
 async def create_new_token(token:str, db):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        if payload["type"] != "access":
+        if payload.get("type") != "refresh":
             raise HTTPException(401,"No refresh token")
         user_id = payload["user_id"]
-        result=await db.execute(select(Employees.id).where(Employees.id == user_id))
+        result=await db.execute(select(Employees).where(Employees.id == user_id))
         user = result.scalars().first()
         if not user:
             raise HTTPException(404,"User not found")
-
-        return {"your new access token ": await create_access_token(user)}
+        if not user.is_active or user.fired_at is not None:
+            raise HTTPException(401, "User is inactive")
+        return {"access_token": await create_access_token(user.id), "token_type": "bearer"}
     except ExpiredSignatureError:
         raise HTTPException(401,"Token expired")
     except JWTError:
@@ -69,6 +70,8 @@ bearer = OAuth2PasswordBearer(tokenUrl="/auth/login")
 async def get_current_user(db:MyDb,token: str = Depends(bearer)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "access":
+            raise HTTPException(401, "Token is invalid")
         user_id = payload.get("user_id")
         if user_id is None:
             raise HTTPException(401,"User not found")
@@ -78,11 +81,15 @@ async def get_current_user(db:MyDb,token: str = Depends(bearer)):
     user = result.scalars().first()
     if not user:
         raise HTTPException(404,"User not found")
+    if not user.is_active or user.fired_at is not None:
+        raise HTTPException(403, "User is inactive")
     return user
 
 
 def require_role(*allow_roles):
     async def checker(current_user=(Depends(get_current_user))):
+        if current_user.is_superadmin:
+            return current_user
         user_roles = [er.role.code for er in current_user.employee_role]
         if not any(role in allow_roles for role in user_roles):
             raise HTTPException(403,"Permission Denied")

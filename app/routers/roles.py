@@ -51,6 +51,8 @@ async def delete_role(
 current_user=Depends(require_role("boss"))
 ):
     obj = await check_ident(db, Roles, role_id)
+    if obj.is_system:
+        raise HTTPException(409, "Tizim rolini o'chirib bo'lmaydi")
 
     in_use = await db.scalar(
         select(EmployeeRole.employee_id)

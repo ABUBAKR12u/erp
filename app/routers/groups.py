@@ -27,6 +27,8 @@ async def get_group_user(current_user=Depends(require_role("admin", "boss"))):
 
 
 def allowed_branches(current_user):
+    if current_user.is_superadmin:
+        return None
     roles = [er for er in current_user.employee_role if er.role.code in ("admin", "boss")]
     if any(er.branch_id is None for er in roles):
         return None

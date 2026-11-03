@@ -8,18 +8,18 @@ from app.scheme.roles import RoleResponse
 class EmployeeRolesBase(BaseModel):
     employee_id: int
     role_id: int
-    branch_id: int
+    branch_id: int | None = None
 
 class EmployeeRolesAdd(EmployeeRolesBase):
     pass
 
 class EmployeeRolesUpdate(BaseModel):
     role_id: int
-    branch_id: int
+    branch_id: int | None = None
 class EmployeeRolesResponse(BaseModel):
     employee_id: int
     role_id: int
-    branch_id: int
+    branch_id: int | None = None
     role: Optional[RoleResponse] = None
     model_config = ConfigDict(from_attributes=True)
 

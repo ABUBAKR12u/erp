@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, String, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.Base import Base
 from app.model.employee_roles import EmployeeRole
@@ -7,6 +7,9 @@ from app.model.employee_roles import EmployeeRole
 
 class Employees(Base):
     __tablename__ = "employees"
+    __table_args__ = (
+        CheckConstraint("NOT is_superadmin OR (is_active AND fired_at IS NULL)", name="ck_employees_superadmin_active"),
+    )
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"))
     first_name: Mapped[str] = mapped_column(String(60), nullable=False)
@@ -20,6 +23,7 @@ class Employees(Base):
     hired_at: Mapped[date] = mapped_column(Date, nullable=False)
     fired_at: Mapped[date | None] = mapped_column(Date, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_superadmin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 

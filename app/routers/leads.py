@@ -25,9 +25,12 @@ router = APIRouter(tags=["Leads"] , prefix="/leads")
 @router.post("/")
 async def add_lead(leads: LeadAdd, db: MyDb, current_user=Depends(require_role("admin", "boss"))):
     await check_ident(db, Branch, leads.branch_id)
-    await check_ident(db, LeadSource, leads.source_id)
-    await check_ident(db, Course, leads.course_id)
-    await check_ident(db, LeadStatus, leads.status_id)
+    if leads.source_id is not None:
+        await check_ident(db, LeadSource, leads.source_id)
+    if leads.course_id is not None:
+        await check_ident(db, Course, leads.course_id)
+    if leads.status_id is not None:
+        await check_ident(db, LeadStatus, leads.status_id)
     if leads.assigned_to:
         await check_ident(db, Employees, leads.assigned_to)
 
@@ -66,6 +69,7 @@ async def get_leads(
     status_id:   Optional[int]      = None,
     from_date:   Optional[datetime] = None,
     to_date:     Optional[datetime] = None,
+    branch_id:   Optional[int]      = None,
 ):
     query = select(Lead).options(
         selectinload(Lead.branch),
@@ -89,6 +93,8 @@ async def get_leads(
         )
     if assigned_to:
         conditions.append(Lead.assigned_to == assigned_to)
+    if branch_id is not None:
+        conditions.append(Lead.branch_id == branch_id)
     if created_by:
         conditions.append(Lead.created_by == created_by)
     if status_id:
@@ -109,16 +115,19 @@ async def update_lead(lead_id: int, leads: LeadUpdate, db: MyDb, current_user=De
     if not obj:
         raise HTTPException(404, "Lead not found")
     await check_ident(db, Branch, leads.branch_id)
-    await check_ident(db, LeadSource, leads.source_id)
-    await check_ident(db, Course, leads.course_id)
-    await check_ident(db, LeadStatus, leads.status_id)
+    if leads.source_id is not None:
+        await check_ident(db, LeadSource, leads.source_id)
+    if leads.course_id is not None:
+        await check_ident(db, Course, leads.course_id)
+    if leads.status_id is not None:
+        await check_ident(db, LeadStatus, leads.status_id)
     if leads.assigned_to:
         await check_ident(db, Employees, leads.assigned_to)
-    if leads.phone != obj.phone:
+    if leads.phone != obj.phone or leads.branch_id != obj.branch_id:
         find = await db.execute(
             select(Lead).where(
                 Lead.phone == leads.phone,
-                Lead.branch_id == obj.branch_id,
+                Lead.branch_id == leads.branch_id,
                 Lead.id != lead_id
             )
         )
@@ -149,9 +158,17 @@ async def convert_lead(lead_id: int, student_id: int, db: MyDb, current_user=Dep
         raise HTTPException(404, "Lead not found")
 
     student = await check_ident(db, Student, student_id)
+    if obj.student_id is not None and obj.student_id != student_id:
+        raise HTTPException(409, "Lid allaqachon boshqa o'quvchiga aylantirilgan")
+    if student.branch_id != obj.branch_id:
+        raise HTTPException(400, "Lid va o'quvchi bir filialga tegishli bo'lishi kerak")
 
     obj.student_id = student_id
     student.status = StudentStatus.faol
+    student.lead_id = lead_id
+    won_status = await db.scalar(select(LeadStatus).where(LeadStatus.is_won == True).order_by(LeadStatus.position).limit(1))
+    if won_status:
+        obj.status_id = won_status.id
 
     await db.commit()
     return {"message": "Lead converted successfully"}

@@ -9,6 +9,7 @@ class BranchBase(BaseModel):
     phone: str
     city: str
     opened_at: date
+    is_active: bool = True
 
 class BranchAdd(BranchBase):
     pass

@@ -49,6 +49,7 @@ class LeadBase(BaseModel):
     course_id:   Optional[int] = None
     assigned_to: Optional[int] = None
     comment:     Optional[str] = None
+    lost_reason: Optional[str] = None
 
 class LeadAdd(LeadBase):
     pass

@@ -20,6 +20,8 @@ async def login(request: Request ,db:MyDb , user_data:OAuth2PasswordRequestForm=
         raise HTTPException(401, "Incorrect username or password")
     if not await verify_password(user_data.password , employee.password):
         raise HTTPException(401, "Incorrect username or password")
+    if not employee.is_active or employee.fired_at is not None:
+        raise HTTPException(401, "User is inactive")
     access_token=await create_access_token(employee.id)
     refresh_token=await create_refresh_token(employee.id)
     return {"access_token":access_token,"refresh_token":refresh_token}

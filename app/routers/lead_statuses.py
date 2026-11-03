@@ -42,6 +42,8 @@ async def get_lead_statuses(db:MyDb):
 
 @router.put("/{lead_status_id}")
 async def update_lead_status(lead_status_id: int, lead_status: LeadStatusUpdate, db: MyDb):
+    if lead_status.is_won and lead_status.is_lost:
+        raise HTTPException(422, "Holat bir vaqtda muvaffaqiyatli va yo'qotilgan bo'la olmaydi")
     name = normalize_name(lead_status.name)
     obj = await db.get(LeadStatus, lead_status_id)
 

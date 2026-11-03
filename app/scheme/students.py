@@ -39,6 +39,7 @@ class StudentAdd(StudentBase):
 
 
 class StudentUpdate(BaseModel):
+    status:       Optional[StudentStatus] = None
     branch_id:    Optional[int] = None
     first_name:   Optional[str] = None
     last_name:    Optional[str] = None
