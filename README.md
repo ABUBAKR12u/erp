@@ -18,6 +18,8 @@ Mavjud xodim hisobi bilan kiring. Menyu va amallar xodim roliga qarab ko'rsatila
 
 - Lidlar uchun Kanban va jadval; boshqa bo'limlar uchun mos kartochka va jadval ko'rinishlari.
 - Qidiruvli, klaviatura bilan boshqariladigan selectlar, bog'liq filial/xona/o'qituvchi tanlovlari.
+- Barcha sana maydonlarida maxsus o'zbekcha kalendar: oy/yilni tez tanlash, Bugun, tozalash, klaviatura va ruxsat etilgan sana chegaralari.
+- Darslar uchun ixcham kunlik ko'rinish, alohida vaqt bloki, mavzu va joylashuv; Bugun va Shu hafta tezkor filtrlari.
 - Yaratish, tahrirlash, batafsil profil, holatni o'zgartirish va mavjud API amallari.
 - Liddan yangi o'quvchi yaratish yoki mavjud o'quvchi bilan bog'lash.
 - Sahifalash, qidiruv, filtrlar va ko'rinayotgan/tanlangan yozuvlarni CSV eksport qilish.

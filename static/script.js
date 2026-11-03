@@ -131,6 +131,7 @@ class SmartSelect {
     }
     open() {
         if (this.select.disabled || this.panel) return;
+        SmartDate.active?.close();
         SmartSelect.active?.close(); SmartSelect.active = this;
         this.panel = document.createElement("div"); this.panel.className = "select-popover";
         this.panel.innerHTML = `<div class="select-search-wrap">${icon("search")}<input aria-label="${esc(this.label)} variantlarini qidirish" placeholder="Qidirish…" autocomplete="off"></div><div class="select-options" role="listbox" aria-label="${esc(this.label)} variantlari"></div>`;
@@ -172,9 +173,121 @@ class SmartSelect {
     choose(index) { this.select.selectedIndex = index; this.select.dispatchEvent(new Event("change", { bubbles: true })); this.close(true); }
     close(focus = false) { this.panel?.remove(); this.panel = null; this.button.setAttribute("aria-expanded", "false"); if (SmartSelect.active === this) SmartSelect.active = null; if (focus) this.button.focus(); }
 }
+function calendarDate(value) { return new Date(`${value}T12:00:00Z`); }
+function calendarISO(date) { return date.toISOString().slice(0, 10); }
+function shiftCalendarDay(value, days) { const date = calendarDate(value); date.setUTCDate(date.getUTCDate() + days); return calendarISO(date); }
+function readableDate(value) { if (!value) return "Sanani tanlang"; const [year, month, day] = value.split("-"); return `${Number(day)} ${shortMonths[Number(month) - 1]}, ${year}`; }
+class SmartDate {
+    static instances = new Map();
+    static active = null;
+    static sequence = 0;
+    constructor(input) {
+        this.input = input; this.required = input.required; input.required = false;
+        if (!input.id) input.id = `calendar-input-${++SmartDate.sequence}`;
+        this.label = input.getAttribute("aria-label") || document.querySelector(`label[for="${input.id}"]`)?.textContent.replace("*", "").trim() || input.closest("label")?.textContent.trim() || "Sana";
+        input.classList.add("calendar-native"); input.tabIndex = -1; input.setAttribute("aria-hidden", "true");
+        this.wrapper = document.createElement("div"); this.wrapper.className = "date-picker";
+        input.before(this.wrapper); this.wrapper.append(input);
+        this.button = document.createElement("button"); this.button.type = "button"; this.button.className = "date-trigger";
+        this.button.id = `${input.id}-trigger`; this.button.setAttribute("role", "combobox");
+        this.button.setAttribute("aria-label", this.label); this.button.setAttribute("aria-haspopup", "dialog");
+        this.button.setAttribute("aria-expanded", "false"); this.button.setAttribute("aria-controls", `${input.id}-calendar`);
+        this.button.setAttribute("aria-required", String(this.required)); this.wrapper.append(this.button);
+        document.querySelector(`label[for="${input.id}"]`)?.setAttribute("for", this.button.id);
+        this.button.addEventListener("click", () => this.panel ? this.close(true) : this.open());
+        this.button.addEventListener("keydown", (event) => { if (["ArrowDown", "ArrowUp"].includes(event.key)) { event.preventDefault(); this.open(); } });
+        input.addEventListener("change", () => this.refresh());
+        SmartDate.instances.set(input, this); this.refresh();
+    }
+    refresh() {
+        this.button.disabled = this.input.disabled;
+        this.button.innerHTML = `<span>${esc(readableDate(this.input.value))}</span>${icon("schedules")}`;
+        this.button.classList.toggle("placeholder", !this.input.value);
+        this.button.setAttribute("aria-invalid", "false");
+    }
+    allowed(value) { return (!this.input.min || value >= this.input.min) && (!this.input.max || value <= this.input.max); }
+    open() {
+        if (this.input.disabled || this.panel) return;
+        SmartSelect.active?.close(); SmartDate.active?.close(); SmartDate.active = this;
+        this.focusDate = this.input.value || isoToday();
+        if (this.input.min && this.focusDate < this.input.min) this.focusDate = this.input.min;
+        if (this.input.max && this.focusDate > this.input.max) this.focusDate = this.input.max;
+        const date = calendarDate(this.focusDate); this.year = date.getUTCFullYear(); this.month = date.getUTCMonth(); this.view = "days";
+        this.panel = document.createElement("div"); this.panel.className = "calendar-popover";
+        this.panel.id = `${this.input.id}-calendar`; this.panel.setAttribute("role", "dialog"); this.panel.setAttribute("aria-label", `${this.label} — kalendar`);
+        (this.input.closest("dialog") || document.body).append(this.panel);
+        this.button.setAttribute("aria-expanded", "true");
+        this.panel.addEventListener("click", (event) => this.handleClick(event));
+        this.panel.addEventListener("keydown", (event) => this.handleKey(event));
+        this.render(); this.position(); this.focusCell();
+    }
+    position() {
+        const bounds = this.button.getBoundingClientRect(), width = Math.min(310, innerWidth - 24);
+        this.panel.style.width = `${width}px`;
+        this.panel.style.left = `${Math.max(12, Math.min(bounds.left, innerWidth - width - 12))}px`;
+        const height = this.panel.offsetHeight, below = innerHeight - bounds.bottom - 12;
+        this.panel.style.top = `${Math.max(12, below >= height || bounds.top < height ? Math.min(bounds.bottom + 8, innerHeight - height - 12) : bounds.top - height - 8)}px`;
+        this.panel.style.maxHeight = `${innerHeight - 24}px`;
+    }
+    render() {
+        const monthLabel = `${months[this.month][0].toUpperCase()}${months[this.month].slice(1)}`;
+        const first = new Date(Date.UTC(this.year, this.month, 1)), offset = (first.getUTCDay() + 6) % 7;
+        const start = new Date(first); start.setUTCDate(1 - offset);
+        const yearStart = Math.floor(this.year / 12) * 12;
+        let body;
+        if (this.view === "days") body = `<div class="calendar-weekdays" aria-hidden="true">${["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"].map((day) => `<span>${day}</span>`).join("")}</div><div class="calendar-grid" role="grid" aria-label="${monthLabel} ${this.year}">${Array.from({ length: 42 }, (_, i) => {
+            const date = new Date(start); date.setUTCDate(start.getUTCDate() + i); const value = calendarISO(date), selected = value === this.input.value;
+            return `<button type="button" role="gridcell" class="calendar-day${date.getUTCMonth() !== this.month ? " outside" : ""}${value === isoToday() ? " today" : ""}${selected ? " selected" : ""}" data-date="${value}" aria-label="${dateLabel(value)}" aria-selected="${selected}" ${value === isoToday() ? 'aria-current="date"' : ""} tabindex="${value === this.focusDate ? 0 : -1}" ${this.allowed(value) ? "" : "disabled"}>${date.getUTCDate()}</button>`;
+        }).join("")}</div>`;
+        else if (this.view === "months") body = `<div class="calendar-choices">${months.map((month, index) => `<button type="button" data-month="${index}" class="${index === this.month ? "selected" : ""}" ${this.allowedMonth(this.year, index) ? "" : "disabled"}>${month[0].toUpperCase()}${month.slice(1)}</button>`).join("")}</div>`;
+        else body = `<div class="calendar-choices">${Array.from({ length: 12 }, (_, i) => yearStart + i).map((year) => `<button type="button" data-year="${year}" class="${year === this.year ? "selected" : ""}" ${(this.input.min && year < Number(this.input.min.slice(0, 4))) || (this.input.max && year > Number(this.input.max.slice(0, 4))) ? "disabled" : ""}>${year}</button>`).join("")}</div>`;
+        this.panel.innerHTML = `<div class="calendar-kicker">${esc(this.label)}</div><div class="calendar-header"><button type="button" class="icon-button" data-calendar-step="-1" aria-label="Oldingi ${this.view === "days" ? "oy" : this.view === "months" ? "yil" : "yillar"}">${icon("left")}</button><div><button type="button" class="calendar-heading" data-calendar-view="months">${this.view === "years" ? `${yearStart}–${yearStart + 11}` : this.view === "days" ? monthLabel : "Oy tanlang"}</button>${this.view !== "years" ? `<button type="button" class="calendar-year" data-calendar-view="years" aria-label="Yilni tanlash">${this.year}${icon("chevron")}</button>` : ""}</div><button type="button" class="icon-button" data-calendar-step="1" aria-label="Keyingi ${this.view === "days" ? "oy" : this.view === "months" ? "yil" : "yillar"}">${icon("right")}</button></div>${body}<div class="calendar-footer"><button type="button" data-calendar-today ${this.allowed(isoToday()) ? "" : "disabled"}>Bugun</button>${!this.required ? '<button type="button" data-calendar-clear>Tozalash</button>' : '<span>Sanani tanlang</span>'}<button class="icon-button" type="button" data-calendar-close aria-label="Kalendarni yopish">${icon("close")}</button></div>`;
+    }
+    allowedMonth(year, month) { const first = calendarISO(new Date(Date.UTC(year, month, 1))), last = calendarISO(new Date(Date.UTC(year, month + 1, 0))); return (!this.input.min || last >= this.input.min) && (!this.input.max || first <= this.input.max); }
+    focusCell() { (this.panel.querySelector('[tabindex="0"]:not(:disabled), .calendar-choices .selected:not(:disabled)') || this.panel.querySelector(".calendar-day:not(:disabled), .calendar-choices button:not(:disabled)") || this.panel.querySelector("button")).focus(); }
+    step(direction) {
+        if (this.view === "days") { const date = new Date(Date.UTC(this.year, this.month + direction, 1)); this.year = date.getUTCFullYear(); this.month = date.getUTCMonth(); }
+        else this.year += direction * (this.view === "years" ? 12 : 1);
+        this.year = Math.max(100, Math.min(9998, this.year));
+        if (this.view === "days") this.focusDate = calendarISO(new Date(Date.UTC(this.year, this.month, Math.min(calendarDate(this.focusDate).getUTCDate(), new Date(Date.UTC(this.year, this.month + 1, 0)).getUTCDate()))));
+        this.render(); this.position();
+    }
+    handleClick(event) {
+        const button = event.target.closest("button"); if (!button || button.disabled) return;
+        if (button.dataset.date) return this.choose(button.dataset.date);
+        if (button.dataset.calendarStep) { this.step(Number(button.dataset.calendarStep)); this.panel.querySelector(`[data-calendar-step="${button.dataset.calendarStep}"]`).focus(); return; }
+        if (button.dataset.calendarView) this.view = button.dataset.calendarView;
+        if (button.dataset.month != null) { this.month = Number(button.dataset.month); this.view = "days"; }
+        if (button.dataset.year) { this.year = Number(button.dataset.year); this.view = "months"; }
+        if (button.hasAttribute("data-calendar-today")) return this.choose(isoToday());
+        if (button.hasAttribute("data-calendar-clear")) return this.choose("");
+        if (button.hasAttribute("data-calendar-close")) return this.close(true);
+        this.render(); this.position(); this.focusCell();
+    }
+    handleKey(event) {
+        if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); this.close(true); return; }
+        if (event.key === "Tab") { const buttons = [...this.panel.querySelectorAll("button:not(:disabled)")]; if ((!event.shiftKey && event.target === buttons.at(-1)) || (event.shiftKey && event.target === buttons[0])) this.close(); return; }
+        if (!event.target.dataset.date) return;
+        const moves = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+        let value = event.target.dataset.date;
+        if (event.key in moves) value = shiftCalendarDay(value, moves[event.key]);
+        else if (["Home", "End"].includes(event.key)) { const day = (calendarDate(value).getUTCDay() + 6) % 7; value = shiftCalendarDay(value, event.key === "Home" ? -day : 6 - day); }
+        else if (["PageUp", "PageDown"].includes(event.key)) { event.preventDefault(); this.step(event.key === "PageUp" ? -1 : 1); this.focusCell(); return; }
+        else return;
+        event.preventDefault(); if (!this.allowed(value)) return;
+        this.focusDate = value; const date = calendarDate(value); this.year = date.getUTCFullYear(); this.month = date.getUTCMonth(); this.render(); this.focusCell();
+    }
+    choose(value) { if (value && !this.allowed(value)) return; this.input.value = value; this.refresh(); this.close(true); this.input.dispatchEvent(new Event("change", { bubbles: true })); }
+    close(focus = false) { this.panel?.remove(); this.panel = null; this.button.setAttribute("aria-expanded", "false"); if (SmartDate.active === this) SmartDate.active = null; if (focus && this.button.isConnected) this.button.focus(); }
+}
+function enhanceDates(root = document) {
+    for (const [input, instance] of SmartDate.instances) if (!input.isConnected) { instance.close(); SmartDate.instances.delete(input); }
+    root.querySelectorAll('input[type="date"]').forEach((input) => SmartDate.instances.has(input) ? SmartDate.instances.get(input).refresh() : new SmartDate(input));
+}
 function enhanceSelects(root = document) {
     for (const [select, instance] of SmartSelect.instances) if (!select.isConnected) { instance.close(); SmartSelect.instances.delete(select); }
     root.querySelectorAll("select").forEach((select) => SmartSelect.instances.has(select) ? SmartSelect.instances.get(select).refresh() : new SmartSelect(select));
+    enhanceDates(root);
 }
 function fillSelect(select, options, placeholder, value = "") {
     const blank = new Option(placeholder, "");
@@ -183,7 +296,9 @@ function fillSelect(select, options, placeholder, value = "") {
     SmartSelect.instances.get(select)?.refresh();
 }
 document.addEventListener("pointerdown", (event) => { const active = SmartSelect.active; if (active && !active.wrapper.contains(event.target) && !active.panel?.contains(event.target)) active.close(); if (rowMenu && !rowMenu.contains(event.target) && !event.target.closest("[data-menu]")) closeRowMenu(); });
-window.addEventListener("resize", () => { SmartSelect.active?.close(); closeRowMenu(); });
+document.addEventListener("pointerdown", (event) => { const active = SmartDate.active; if (active && !active.wrapper.contains(event.target) && !active.panel?.contains(event.target)) active.close(); });
+window.addEventListener("resize", () => { SmartSelect.active?.close(); SmartDate.active?.close(); closeRowMenu(); });
+document.addEventListener("scroll", (event) => { if (SmartDate.active && !SmartDate.active.panel?.contains(event.target)) SmartDate.active.close(); }, true);
 
 const field = (key, label, type = "text", extra = {}) => ({ key, label, type, ...extra });
 const section = (label) => ({ type: "section", label });
@@ -304,24 +419,58 @@ function filterRows(rows) {
 }
 function timetableControls() {
     if (!["schedules", "sessions"].includes(state.view)) return "";
-    return `<div class="timetable-controls"><div class="timetable-caption">${icon(state.view)}<span>${state.view === "schedules" ? "Doimiy haftalik reja" : "Darslar taqvimi"}<small>Vaqtlar Toshkent vaqti bilan · UTC+5</small></span></div>${state.view === "sessions" ? `<div class="date-range"><label>Boshlanish<input type="date" data-filter="date_from" aria-label="Davr boshlanishi" value="${esc(state.filters.date_from || "")}"></label><span>—</span><label>Tugash<input type="date" data-filter="date_to" aria-label="Davr tugashi" value="${esc(state.filters.date_to || "")}"></label></div>` : '<p>Guruhning o‘qish muddati davomida amal qiladi.</p>'}${canWrite() ? `<button type="button" class="button secondary" data-action="generate-sessions">${icon("sessions")}Jadvaldan darslar yaratish</button>` : ""}</div>`;
+    if (state.view === "sessions") return lessonPlannerControls();
+    return `<div class="timetable-controls"><div class="timetable-caption">${icon("schedules")}<span>Doimiy haftalik reja<small>Vaqtlar Toshkent vaqti bilan · UTC+5</small></span></div><p>Guruhning o‘qish muddati davomida amal qiladi.</p>${canWrite() ? `<button type="button" class="button secondary" data-action="generate-sessions">${icon("sessions")}Jadvaldan darslar yaratish</button>` : ""}</div>`;
 }
-function timetableCard(row, schedule = false) {
-    const teacher = schedule ? row.group.teacher : row.teacher;
-    return `<article class="timetable-card tone-${toneId(row.group_id)}${row.status === "bekor_qilingan" ? " cancelled" : ""}"><div class="timetable-card-top"><span class="time-label">${timeLabel(row.start_time)}–${timeLabel(row.end_time)}</span><button class="icon-button" type="button" data-menu="${row.id}" aria-label="${esc(recordName(row))} — amallar">${icon("more")}</button></div><button class="cell-link timetable-name" type="button" data-detail="${row.id}">${esc(row.group.name)}</button>${!schedule ? `<p class="lesson-topic">${esc(row.topic || "Mavzu hali kiritilmagan")}</p>` : ""}<div class="timetable-meta"><span>${icon("rooms")}${esc(row.room.name)}</span><span>${icon("teachers")}${esc(fullName(teacher))}</span></div>${schedule ? `<span class="cell-sub">${dateLabel(row.group.start_date)} — ${row.group.end_date ? dateLabel(row.group.end_date) : "davom etmoqda"}</span>${!["faol", "rejalashtirilgan"].includes(row.group.status) ? statusPill(row.group.status, "group") : ""}` : `<div class="lesson-footer">${statusPill(row.status, "session")}${row.status === "rejalashtirilgan" && canWrite() ? `<button class="text-button" type="button" data-session-complete="${row.id}">${icon("check")}O‘tildi</button>` : ""}</div>`}</article>`;
+function lessonPeriod(preset) {
+    if (preset === "all") return { date_from: "", date_to: "" };
+    const today = isoToday(), monday = shiftCalendarDay(today, -((calendarDate(today).getUTCDay() + 6) % 7));
+    return preset === "today" ? { date_from: today, date_to: today } : { date_from: monday, date_to: shiftCalendarDay(monday, 6) };
+}
+function currentLessonPeriod() { return ["all", "today", "week"].find((key) => { const period = lessonPeriod(key); return (state.filters.date_from || "") === period.date_from && (state.filters.date_to || "") === period.date_to; }); }
+function lessonPlannerControls() {
+    const period = currentLessonPeriod();
+    return `<div class="lesson-planner-tools"><div class="lesson-tools-heading"><span class="planner-emblem">${icon("sessions")}</span><div><h3>Darslar taqvimi</h3><p>Toshkent vaqti <span>UTC+5</span></p></div>${canWrite() ? `<button type="button" class="button planner-generate" data-action="generate-sessions" aria-label="Jadvaldan darslar yaratish" title="Jadvaldan darslar yaratish">${icon("plus")}<span class="generate-label">Jadvaldan darslar yaratish</span><span class="generate-short" aria-hidden="true">Yaratish</span></button>` : ""}</div><div class="lesson-date-controls"><div class="period-presets" role="group" aria-label="Darslar davri">${[["all", "Barchasi"], ["today", "Bugun"], ["week", "Shu hafta"]].map(([key, label]) => `<button type="button" data-lesson-period="${key}" aria-pressed="${period === key}" class="${period === key ? "active" : ""}">${label}</button>`).join("")}</div><div class="lesson-range-fields"><label><span>Dan</span><input type="date" data-filter="date_from" aria-label="Davr boshlanishi" value="${esc(state.filters.date_from || "")}"></label><span class="range-join">${icon("arrow")}</span><label><span>Gacha</span><input type="date" data-filter="date_to" aria-label="Davr tugashi" value="${esc(state.filters.date_to || "")}"></label></div><span class="range-help">${icon("schedules")}Sanani bosib davrni tanlang</span></div></div>`;
+}
+function syncLessonControls() {
+    if (state.view !== "sessions") return;
+    const period = currentLessonPeriod();
+    document.querySelectorAll("[data-lesson-period]").forEach((button) => { button.classList.toggle("active", button.dataset.lessonPeriod === period); button.setAttribute("aria-pressed", String(button.dataset.lessonPeriod === period)); });
+    for (const key of ["date_from", "date_to"]) { const input = document.querySelector(`input[data-filter="${key}"]`); if (input) { input.value = state.filters[key] || ""; input.min = key === "date_to" ? state.filters.date_from || "" : ""; input.max = ""; SmartDate.instances.get(input)?.refresh(); } }
+}
+function lessonMinutes(row) { const minutes = (value) => Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5)); return Math.max(0, minutes(row.end_time) - minutes(row.start_time)); }
+function durationLabel(minutes) { return [Math.floor(minutes / 60) ? `${Math.floor(minutes / 60)} soat` : "", minutes % 60 ? `${minutes % 60} daqiqa` : ""].filter(Boolean).join(" ") || "0 daqiqa"; }
+function lessonEntry(row) {
+    const now = new Date(), start = new Date(`${row.date}T${timeLabel(row.start_time)}:00+05:00`), end = new Date(`${row.date}T${timeLabel(row.end_time)}:00+05:00`);
+    const live = row.status === "rejalashtirilgan" && now >= start && now < end, finished = row.status === "rejalashtirilgan" && now >= end;
+    const name = esc(row.group.name), key = esc(row.id);
+    return `<article class="lesson-entry tone-${toneId(row.group_id)}${row.status === "bekor_qilingan" ? " cancelled" : ""}${live ? " is-live" : ""}"><div class="lesson-time-block"><time datetime="${row.date}T${timeLabel(row.start_time)}:00+05:00">${timeLabel(row.start_time)}</time><span class="lesson-time-divider"></span><span class="lesson-end-time">${timeLabel(row.end_time)}</span><small>${durationLabel(lessonMinutes(row))}</small></div><div class="lesson-entry-main"><div class="lesson-group-line"><span class="lesson-group-mark" aria-hidden="true">${esc(initials(row.group.name))}</span><button class="cell-link" type="button" data-detail="${key}">${name}</button>${live ? '<span class="lesson-live">Hozir davom etmoqda</span>' : ""}</div><h4 class="lesson-entry-topic${row.topic ? "" : " no-topic"}">${esc(row.topic || "Mavzu hali kiritilmagan")}</h4><div class="lesson-entry-meta"><span class="lesson-teacher">${avatar(fullName(row.teacher), "small")}<span>${esc(fullName(row.teacher))}</span></span><span class="lesson-place">${icon("rooms")}<span>${esc(row.room.name)}</span></span><span class="lesson-branch">${branchLabel(row.group)}</span></div></div><div class="lesson-entry-actions"><div class="lesson-status-line">${statusPill(row.status, "session")}<button class="icon-button" type="button" data-menu="${key}" aria-label="${esc(recordName(row))} — amallar">${icon("more")}</button></div>${finished && canWrite() ? `<button class="button lesson-finish" type="button" data-session-complete="${key}">${icon("check")}Darsni yakunlash</button>` : `<button class="button lesson-open" type="button" data-detail="${key}">Batafsil ${icon("arrow")}</button>`}</div></article>`;
+}
+function lessonAgenda(rows) {
+    const dates = [...new Set(rows.map((r) => r.date))], totalMinutes = rows.filter((r) => r.status !== "bekor_qilingan").reduce((sum, row) => sum + lessonMinutes(row), 0);
+    return `<div class="lesson-board"><div class="lesson-board-caption"><span>Kunlar bo‘yicha</span><span>Sahifada <b>${rows.length} ta dars</b><i></i>${durationLabel(totalMinutes)}</span></div>${dates.map((date) => {
+        const dayRows = rows.filter((r) => r.date === date), today = date === isoToday(), weekday = weekdays[calendarDate(date).getUTCDay() || 7];
+        return `<section class="lesson-day${today ? " is-today" : ""}"><div class="lesson-day-heading"><time class="lesson-date-stamp" datetime="${date}"><strong>${Number(date.slice(8))}</strong><span>${shortMonths[Number(date.slice(5, 7)) - 1]}</span></time><div><h3>${weekday}${today ? '<span class="today-label">Bugun</span>' : ""}</h3><p>${months[Number(date.slice(5, 7)) - 1]} ${date.slice(0, 4)}</p></div><span class="lesson-day-line"></span><span class="lesson-day-count">${dayRows.length} ta dars</span></div><div class="lesson-day-entries">${dayRows.map(lessonEntry).join("")}</div></section>`;
+    }).join("")}</div>`;
+}
+function emptyLessonAgenda() {
+    const filtered = Object.values(state.filters).some(Boolean);
+    return `<div class="lesson-empty"><div class="lesson-empty-art" aria-hidden="true"><div class="empty-calendar-top"><i></i><i></i></div><div class="empty-calendar-days">${Array.from({ length: 15 }, (_, i) => `<span${i === 7 ? ' class="marked"' : ""}>${i === 7 ? icon("check") : ""}</span>`).join("")}</div></div><h3>${filtered ? "Bu tanlovda dars topilmadi" : "Yangi darslar uchun joy tayyor"}</h3><p>${filtered ? "Boshqa sana, guruh yoki holatni tanlab ko‘ring." : "Haftalik jadvaldan darslar yarating yoki alohida dars qo‘shing."}</p><div>${filtered ? '<button class="button secondary" type="button" data-action="clear-filters">Filtrlarni tozalash</button>' : ""}${canWrite() ? `<button class="button primary" type="button" data-action="create">${icon("plus")}Dars qo‘shish</button>` : ""}</div></div>`;
+}
+function timetableCard(row) {
+    return `<article class="timetable-card tone-${toneId(row.group_id)}"><div class="timetable-card-top"><span class="time-label">${timeLabel(row.start_time)}–${timeLabel(row.end_time)}</span><button class="icon-button" type="button" data-menu="${row.id}" aria-label="${esc(recordName(row))} — amallar">${icon("more")}</button></div><button class="cell-link timetable-name" type="button" data-detail="${row.id}">${esc(row.group.name)}</button><div class="timetable-meta"><span>${icon("rooms")}${esc(row.room.name)}</span><span>${icon("teachers")}${esc(fullName(row.group.teacher))}</span></div><span class="cell-sub">${dateLabel(row.group.start_date)} — ${row.group.end_date ? dateLabel(row.group.end_date) : "davom etmoqda"}</span>${!["faol", "rejalashtirilgan"].includes(row.group.status) ? statusPill(row.group.status, "group") : ""}</article>`;
 }
 function renderTimetable(rows) {
     if (state.mode === "week") return `<div class="week-board${state.filters.weekday ? " single-day" : ""}">${Object.entries(weekdays).filter(([day]) => !state.filters.weekday || String(state.filters.weekday) === day).map(([day, name]) => {
         const slots = rows.filter((r) => String(r.weekday) === day);
-        return `<section class="week-day"><div class="week-day-heading"><h3>${name}</h3><span>${slots.length} dars</span>${canWrite() ? `<button class="icon-button" type="button" data-create-day="${day}" aria-label="${name} kuniga jadval qo‘shish">${icon("plus")}</button>` : ""}</div>${slots.length ? slots.map((row) => timetableCard(row, true)).join("") : '<div class="day-free">Erkin kun<span>Bu sahifada dars yo‘q</span></div>'}</section>`;
+        return `<section class="week-day"><div class="week-day-heading"><h3>${name}</h3><span>${slots.length} dars</span>${canWrite() ? `<button class="icon-button" type="button" data-create-day="${day}" aria-label="${name} kuniga jadval qo‘shish">${icon("plus")}</button>` : ""}</div>${slots.length ? slots.map((row) => timetableCard(row)).join("") : '<div class="day-free">Erkin kun<span>Bu sahifada dars yo‘q</span></div>'}</section>`;
     }).join("")}</div>`;
-    const dates = [...new Set(rows.map((r) => r.date))];
-    return `<div class="lesson-agenda">${dates.map((date) => `<section class="agenda-day"><div class="agenda-date"><strong>${Number(date.slice(8))}</strong><span>${shortMonths[Number(date.slice(5, 7)) - 1]} ${date.slice(0, 4)}</span><b>${weekdays[new Date(`${date}T12:00:00`).getDay() || 7]}</b></div><div class="agenda-lessons">${rows.filter((r) => r.date === date).map((row) => timetableCard(row)).join("")}</div></section>`).join("")}</div>`;
+    return lessonAgenda(rows);
 }
 function listShell() {
     const def = moduleDefinitions[state.view];
     $("page-content").innerHTML = `<section class="panel data-panel"><div class="list-top"><div class="list-title"><h2>${esc(def.title)}</h2><span id="list-count" class="count-badge">—</span></div><div class="list-actions">${def.modes.length > 1 ? `<div class="view-toggle" role="group" aria-label="Ko‘rinish">${def.modes.map((mode) => `<button type="button" data-mode="${mode}" class="${state.mode === mode ? "active" : ""}" aria-label="${mode === "table" ? "Jadval" : mode === "kanban" ? "Kanban" : mode === "workflow" ? "Bosqichlar" : mode === "week" ? "Haftalik" : mode === "agenda" ? "Kunlik darslar" : "Kartochkalar"} ko‘rinishi" aria-pressed="${state.mode === mode}">${icon(mode === "kanban" || mode === "workflow" ? "statuses" : mode === "week" ? "schedules" : mode === "agenda" ? "sessions" : mode)}</button>`).join("")}</div>` : ""}<button class="icon-button bordered" type="button" data-action="refresh" aria-label="Ro‘yxatni yangilash">${icon("refresh")}</button></div></div><div class="toolbar"><div class="search-field">${icon("search")}<input id="record-search" data-filter="search" placeholder="${esc(def.title)} bo‘yicha qidirish…" aria-label="Ro‘yxatdan qidirish" autocomplete="off" value="${esc(state.filters.search || "")}"></div>${filtersFor(state.view).map((filter) => `<select id="filter-${filter.key}" data-filter="${filter.key}" data-label="${esc(filter.label)}"><option value="">${esc(filter.label)}</option>${filter.options.map((option) => `<option value="${esc(option.value)}" ${String(state.filters[filter.key]) === String(option.value) ? "selected" : ""}>${esc(option.label)}</option>`).join("")}</select>`).join("")}<button class="text-button" type="button" data-action="clear-filters" ${Object.values(state.filters).some(Boolean) ? "" : "hidden"}>Tozalash</button></div>${timetableControls()}<div id="bulk-bar" class="bulk-bar" hidden></div><div id="records"></div><div class="table-footer"><span id="result-count" role="status"></span><div class="pagination"><button class="icon-button" type="button" id="previous-page" data-page="-1" aria-label="Oldingi sahifa">${icon("left")}</button><span class="page-position" id="page-position">1 / 1</span><button class="icon-button" type="button" id="next-page" data-page="1" aria-label="Keyingi sahifa">${icon("right")}</button></div></div></section>`;
-    enhanceSelects($("page-content"));
+    enhanceSelects($("page-content")); syncLessonControls();
 }
 function renderRecords() {
     const def = moduleDefinitions[state.view];
@@ -337,6 +486,7 @@ function renderRecords() {
     document.querySelector('[data-action="clear-filters"]').hidden = !Object.values(state.filters).some(Boolean);
     if (!visible.length) {
         $("records").innerHTML = `<div class="empty-state"><div class="empty-symbol">${icon(def.icon)}</div><h3>${Object.values(state.filters).some(Boolean) ? "Mos natija topilmadi" : "Bu yerda yangi boshlanish bor"}</h3><p>${Object.values(state.filters).some(Boolean) ? "Qidiruv yoki filtrlarni o‘zgartirib ko‘ring." : `${esc(def.singular)} qo‘shib, markazingiz ma’lumotlarini to‘ldirishni boshlang.`}</p>${canWrite() ? `<button type="button" class="button secondary" data-action="create">${icon("plus")}${esc(def.add)}</button>` : ""}</div>`;
+        if (state.view === "sessions" && state.mode === "agenda") $("records").innerHTML = emptyLessonAgenda();
     } else if (["week", "agenda"].includes(state.mode)) {
         $("records").innerHTML = renderTimetable(visible);
     } else if (state.mode === "kanban") {
@@ -533,6 +683,7 @@ function updateEditorHints(changed = "") {
         $("edit-end_date").min = $("edit-start_date").value;
     }
     if (editor.module === "statuses" && ["is_won", "is_lost"].includes(changed) && $(`edit-${changed}`).checked) $(changed === "is_won" ? "edit-is_lost" : "edit-is_won").checked = false;
+    enhanceDates($("editor-fields"));
 }
 function editorPayload() {
     const payload = {};
@@ -541,12 +692,12 @@ function editorPayload() {
         const element = $(`edit-${f.key}`), required = f.required || (f.createRequired && !state.editor.row) || f.key === "status";
         let value = f.type === "checkbox" ? element.checked : f.type === "password" ? element.value : element.value.trim();
         if (required && (value === "" || value == null)) {
-            const select = SmartSelect.instances.get(element);
+            const select = SmartSelect.instances.get(element) || SmartDate.instances.get(element);
             if (select) { select.button.setAttribute("aria-invalid", "true"); select.button.focus(); }
             else element.focus();
             throw new Error(`${f.label} maydonini to‘ldiring.`);
         }
-        if (!element.checkValidity()) { element.reportValidity(); throw new Error(`${f.label} qiymatini tekshiring.`); }
+        if (!element.checkValidity()) { const date = SmartDate.instances.get(element); if (date) { date.button.setAttribute("aria-invalid", "true"); date.button.focus(); } else element.reportValidity(); throw new Error(`${f.label} qiymatini tekshiring.`); }
         if (f.type === "select") value = value === "" ? null : f.choices ? value : Number(value);
         else if (f.type === "number") value = value === "" ? null : ["price", "monthly_budget"].includes(f.key) ? value : Number(value);
         else if (f.type !== "checkbox" && !required && value === "" && f.key !== "photo_url") value = null;
@@ -654,6 +805,7 @@ function updateGenerateBounds() {
         if (!input.value || input.value < group.start_date) input.value = group.start_date;
         if (group.end_date && input.value > group.end_date) input.value = group.end_date;
     }
+    enhanceDates($("confirm-dialog"));
 }
 function deleteRecord(row) {
     const module = state.view, soft = ["groups", "students", "employees", "rooms", "sessions"].includes(module);
@@ -726,7 +878,7 @@ async function startApp() {
     await navigate(location.hash.slice(1) || "overview");
 }
 async function refreshCurrent() { if (state.view === "overview") await loadOverview(); else await loadRecords(); }
-function applyFilters() { state.page = 1; state.selected.clear(); if (moduleDefinitions[state.view]?.paged) loadRecords(); else renderRecords(); }
+function applyFilters() { state.page = 1; state.selected.clear(); syncLessonControls(); if (moduleDefinitions[state.view]?.paged) loadRecords(); else renderRecords(); }
 let filterTimer;
 $("login-form").addEventListener("submit", async (event) => {
     event.preventDefault(); const button = event.submitter; button.disabled = true; setMessage("login-error");
@@ -742,6 +894,7 @@ $("login-form").addEventListener("submit", async (event) => {
 $("editor-form").addEventListener("submit", saveEditor);
 document.querySelectorAll("dialog").forEach((dialog) => dialog.addEventListener("close", () => {
     if (SmartSelect.active?.select.closest("dialog") === dialog) SmartSelect.active.close();
+    if (SmartDate.active?.input.closest("dialog") === dialog) SmartDate.active.close();
     if (dialog.id === "editor-dialog") state.editor = null;
 }));
 $("confirm-form").addEventListener("submit", async (event) => {
@@ -759,7 +912,7 @@ document.addEventListener("input", (event) => {
 document.addEventListener("change", (event) => {
     const element = event.target;
     if (element.id === "generate-group") updateGenerateBounds();
-    if (element.dataset.filter && element.dataset.filter !== "search") { state.filters[element.dataset.filter] = element.value; clearTimeout(filterTimer); applyFilters(); }
+    if (element.dataset.filter && element.dataset.filter !== "search") { state.filters[element.dataset.filter] = element.value; if (element.dataset.filter === "date_from" && state.filters.date_to && element.value > state.filters.date_to) state.filters.date_to = ""; clearTimeout(filterTimer); applyFilters(); }
     if (element.id === "context-branch") { state.branch = element.value; state.page = 1; state.selected.clear(); refreshCurrent(); }
     if (element.dataset.editorField) updateEditorHints(element.dataset.editorField);
     if (element.dataset.select) {
@@ -775,6 +928,7 @@ document.addEventListener("click", async (event) => {
         if (target.matches("a.nav-link")) closeMobileMenu();
         if (target.dataset.openView) { document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close()); await navigate(target.dataset.openView); return; }
         if (target.dataset.quickCreate) return openEditor(target.dataset.quickCreate);
+        if (target.dataset.lessonPeriod) { Object.assign(state.filters, lessonPeriod(target.dataset.lessonPeriod)); applyFilters(); return; }
         if (target.dataset.createDay) return openEditor("schedules", null, { weekday: target.dataset.createDay });
         if (target.dataset.groupView) { $("detail-dialog").close(); await navigate(target.dataset.groupView); state.filters = { group_id: target.dataset.groupId }; listShell(); await loadRecords(); return; }
         if (target.dataset.sessionComplete) { const session = state.rows.find((r) => String(r.id) === target.dataset.sessionComplete); if (session) { changeStatus(session); $("new-status").value = "otilgan"; enhanceSelects($("confirm-dialog")); } return; }
@@ -818,6 +972,7 @@ document.addEventListener("dragleave", (event) => { const column = event.target.
 document.addEventListener("drop", async (event) => { const column = event.target.closest("[data-stage]"); if (!column || !state.dragging) return; event.preventDefault(); const row = state.rows.find((r) => String(r.id) === state.dragging); state.dragging = null; document.querySelectorAll(".drag-over,.dragging").forEach((el) => el.classList.remove("drag-over", "dragging")); if (row && String(row.status?.id ?? "") !== column.dataset.stage) await moveLead(row, column.dataset.stage); });
 document.addEventListener("dragend", () => { state.dragging = null; document.querySelectorAll(".drag-over,.dragging").forEach((el) => el.classList.remove("drag-over", "dragging")); });
 document.addEventListener("keydown", (event) => {
+    if (event.target.closest(".calendar-popover")) return;
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k" && state.user && !$("app-view").hidden) { event.preventDefault(); openCommand(); return; }
     if (event.key === "Escape") closeRowMenu();
     if (event.key === "Escape" && $("sidebar").classList.contains("open")) { closeMobileMenu(); $("mobile-menu").focus(); }
