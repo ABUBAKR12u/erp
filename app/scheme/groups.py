@@ -14,6 +14,7 @@ class BranchInfo(BaseModel):
 
 class CourseInfo(BranchInfo):
     price: Decimal
+    duration_months: int | None = None
 
 
 class TeacherInfo(BaseModel):

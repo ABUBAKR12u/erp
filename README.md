@@ -18,6 +18,8 @@ Mavjud xodim hisobi bilan kiring. Menyu va amallar xodim roliga qarab ko'rsatila
 
 - Lidlar uchun Kanban va jadval; boshqa bo'limlar uchun mos kartochka va jadval ko'rinishlari.
 - Qidiruvli, klaviatura bilan boshqariladigan selectlar, bog'liq filial/xona/o'qituvchi tanlovlari.
+- Soat maydonlarida maxsus 24 soatlik tanlov, soat/daqiqa paneli, klaviatura va davomiylik izohi bor.
+- Narx va budjetlar yozish paytida uch xonadan ajraladi: `1 250 000,50`; API'ga `1250000.50` yuboriladi.
 - Barcha sana maydonlarida maxsus o'zbekcha kalendar: oy/yilni tez tanlash, Bugun, tozalash, klaviatura va ruxsat etilgan sana chegaralari.
 - Darslar uchun to'q taqvim paneli, bosiladigan yirik sana bloki va guruhga bog'langan kobalt, korall, laym, binafsha, yalpiz rangli kartalar. Vaqt, mavzu, holat va joylashuv aniq ajraladi; Bugun va Shu hafta filtrlari ishlaydi.
 - Yaratish, tahrirlash, batafsil profil, holatni o'zgartirish va mavjud API amallari.
@@ -52,6 +54,8 @@ Guruh narxi bo'sh bo'lsa kurs narxi olinadi; `0` alohida bepul narx hisoblanadi.
 
 `e31f8b620a01` migratsiyasi mavjud `courses` jadvalini tarixga kiritadi va yangi bazada uni yaratadi. Orqaga qaytarilganda bu jadval va undagi ma'lumotlar saqlanadi. Keyingi migratsiya `groups` jadvalini yaratadi.
 
+Guruh yaratishda kurs davomiyligi va boshlanish sanasidan tugash sanasi tavsiya qilinadi. `Qo'llash` orqali qabul qilinadi; qo'lda tanlangan sana saqlanadi. Oyda mos kun bo'lmasa, shu oyning oxirgi kuni olinadi.
+
 ## Haftalik jadval va darslar
 
 `Haftalik jadval` (`group_schedules`) guruhning hafta kuni, boshlanish/tugash vaqti va xonasini saqlaydi. Hafta kuni 1 = dushanba, 7 = yakshanba. Xona guruhning asosiy xonasidan farq qilishi mumkin. Jadval guruhning o'qish muddati davomida amal qiladi.
@@ -85,3 +89,5 @@ Taqvim ranglari bo'yicha dizayn izlanishi: [Mykyta Kovalenko — Schedule Dashbo
 `python -m pytest tests/test_groups.py tests/test_workspace.py tests/test_main_admin.py tests/test_timetable.py -q`
 
 Bu testlar alohida SQLite xotira bazasida ishlaydi. Loyihaning MySQL bazasiga tegmaydi. Avvalgi testlarning `conftest.py` va `test_course.py` fayllarida MySQL test bazasi alohida sozlangan.
+
+Kiritish formatlari va sana tavsiyasini tekshirish: `node tests/test_input_formatting.cjs`.

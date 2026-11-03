@@ -30,6 +30,18 @@ async def test_overview_is_real_and_scoped(group_client):
     assert (await group_client.get("/workspace/overview?branch_id=2")).status_code == 403
 
 
+async def test_course_duration_is_available_for_group_end_date_suggestions(group_client, group_data):
+    from app.model.courses import Course
+    async with group_data() as db:
+        course = await db.get(Course, 1)
+        course.duration_months = 6
+        await db.commit()
+    workspace = (await group_client.get("/workspace/options")).json()
+    assert next(course for course in workspace["courses"] if course["id"] == 1)["duration_months"] == 6
+    options = (await group_client.get("/groups/options")).json()
+    assert next(course for course in options["courses"] if course["id"] == 1)["duration_months"] == 6
+
+
 async def test_refresh_token_flow_and_access_type(group_client):
     refresh = await create_refresh_token(1)
     response = await group_client.post("/auth/refresh", json={"refresh_token": refresh})

@@ -60,7 +60,7 @@ async def workspace_options(db: MyDb, current_user=Depends(get_current_user)):
             "roles": [{"code": er.role.code, "name": er.role.name, "branch_id": er.branch_id} for er in current_user.employee_role],
         },
         "branches": [{"id": b.id, "name": b.name, "code": b.code, "is_active": b.is_active} for b in branches],
-        "courses": [{"id": c.id, "name": c.name, "price": c.price, "is_active": c.is_active} for c in courses],
+        "courses": [{"id": c.id, "name": c.name, "price": c.price, "duration_months": c.duration_months, "is_active": c.is_active} for c in courses],
         "employees": [{"id": e.id, "first_name": e.first_name, "last_name": e.last_name, "branch_id": e.branch_id, "phone": e.phone, "is_active": e.is_active, "is_superadmin": e.is_superadmin, "is_teacher": e.id in profiles} for e in employees],
         "rooms": [{"id": r.id, "name": r.name, "branch_id": r.branch_id, "capacity": r.capacity, "is_active": r.is_active} for r in rooms],
         "roles": [{"id": r.id, "code": r.code, "name": r.name, "is_system": r.is_system} for r in roles],

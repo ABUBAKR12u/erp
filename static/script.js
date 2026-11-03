@@ -132,6 +132,7 @@ class SmartSelect {
     open() {
         if (this.select.disabled || this.panel) return;
         SmartDate.active?.close();
+        SmartTime.active?.close();
         SmartSelect.active?.close(); SmartSelect.active = this;
         this.panel = document.createElement("div"); this.panel.className = "select-popover";
         this.panel.innerHTML = `<div class="select-search-wrap">${icon("search")}<input aria-label="${esc(this.label)} variantlarini qidirish" placeholder="Qidirish…" autocomplete="off"></div><div class="select-options" role="listbox" aria-label="${esc(this.label)} variantlari"></div>`;
@@ -208,6 +209,7 @@ class SmartDate {
     allowed(value) { return (!this.input.min || value >= this.input.min) && (!this.input.max || value <= this.input.max); }
     open() {
         if (this.input.disabled || this.panel) return;
+        SmartTime.active?.close();
         SmartSelect.active?.close(); SmartDate.active?.close(); SmartDate.active = this;
         this.focusDate = this.input.value || isoToday();
         if (this.input.min && this.focusDate < this.input.min) this.focusDate = this.input.min;
@@ -284,10 +286,153 @@ function enhanceDates(root = document) {
     for (const [input, instance] of SmartDate.instances) if (!input.isConnected) { instance.close(); SmartDate.instances.delete(input); }
     root.querySelectorAll('input[type="date"]').forEach((input) => SmartDate.instances.has(input) ? SmartDate.instances.get(input).refresh() : new SmartDate(input));
 }
+function parseClock(value) {
+    const text = String(value ?? "").trim();
+    let hour, minute;
+    if (/^\d{1,4}$/.test(text)) { hour = text.length <= 2 ? text : text.slice(0, -2); minute = text.length <= 2 ? "0" : text.slice(-2); }
+    else if (/^\d{1,2}:\d{1,2}$/.test(text)) [hour, minute] = text.split(":");
+    else return null;
+    if (Number(hour) > 23 || Number(minute) > 59) return null;
+    return `${String(Number(hour)).padStart(2, "0")}:${String(Number(minute)).padStart(2, "0")}`;
+}
+function canonicalMoney(value) {
+    const text = String(value ?? "").replace(/\s/g, "");
+    if (!text) return "";
+    const match = /^(\d*)(?:[.,](\d{0,2}))?$/.exec(text);
+    if (!match || !/\d/.test(text)) return null;
+    const integer = (match[1] || "0").replace(/^0+(?=\d)/, "");
+    if (integer.length > 12) return null;
+    return integer + (match[2] ? `.${match[2]}` : "");
+}
+function formatMoneyInput(value, final = false) {
+    let text = String(value ?? "").replace(/\s/g, "");
+    if (!text) return "";
+    if (final) { const canonical = canonicalMoney(text); if (canonical == null) return String(value); text = canonical; }
+    if (!/^\d*(?:[.,]\d*)?$/.test(text)) return String(value);
+    let [integer, fraction] = text.split(/[.,]/);
+    if (final && fraction != null) fraction = fraction.padEnd(2, "0");
+    return integer.replace(/\B(?=(\d{3})+(?!\d))/g, " ") + (fraction != null ? `,${fraction}` : "");
+}
+function suggestGroupEnd(start, monthsCount) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start || "") || !Number.isInteger(Number(monthsCount)) || Number(monthsCount) < 1) return null;
+    const date = new Date(`${start}T12:00:00Z`);
+    if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== start) return null;
+    const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + Number(monthsCount), 1, 12));
+    if (target.getUTCFullYear() > 9999) return null;
+    const last = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0, 12)).getUTCDate();
+    target.setUTCDate(Math.min(date.getUTCDate(), last));
+    return target.toISOString().slice(0, 10);
+}
+class SmartTime {
+    static instances = new Map();
+    static active = null;
+    constructor(input) {
+        this.input = input; this.required = input.required; input.required = false;
+        this.label = document.querySelector(`label[for="${input.id}"]`)?.textContent.replace("*", "").trim() || "Vaqt";
+        this.wrapper = document.createElement("div"); this.wrapper.className = "time-picker";
+        input.before(this.wrapper); this.wrapper.append(input); input.classList.add("time-native"); input.tabIndex = -1; input.setAttribute("aria-hidden", "true");
+        this.display = document.createElement("input"); this.display.id = `${input.id}-text`; this.display.type = "text"; this.display.inputMode = "numeric";
+        this.display.autocomplete = "off"; this.display.maxLength = 5; this.display.placeholder = "HH:MM"; this.display.className = "time-text";
+        this.display.setAttribute("aria-label", this.label); this.display.setAttribute("aria-required", String(this.required));
+        this.button = document.createElement("button"); this.button.type = "button"; this.button.className = "time-trigger"; this.button.innerHTML = icon("clock");
+        this.button.setAttribute("aria-label", `${this.label} — tanlash`); this.button.setAttribute("aria-haspopup", "dialog"); this.button.setAttribute("aria-expanded", "false"); this.button.setAttribute("aria-controls", `${input.id}-clock`);
+        this.wrapper.append(this.display, this.button); document.querySelector(`label[for="${input.id}"]`)?.setAttribute("for", this.display.id);
+        input.addEventListener("change", () => this.refresh());
+        this.button.addEventListener("click", () => this.panel ? this.close(true) : this.open());
+        this.display.addEventListener("input", () => { const value = parseClock(this.display.value) || "", changed = this.input.value !== value; this.input.value = value; this.display.setAttribute("aria-invalid", "false"); this.wrapper.classList.remove("invalid"); if (changed) this.input.dispatchEvent(new Event("change", { bubbles: true })); });
+        this.display.addEventListener("blur", () => this.commit());
+        this.display.addEventListener("keydown", (event) => {
+            if (event.altKey && event.key === "ArrowDown") { event.preventDefault(); return this.open(); }
+            if (["ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); const value = parseClock(this.display.value) || "00:00"; let minutes = Number(value.slice(0, 2)) * 60 + Number(value.slice(3)); minutes = Math.max(0, Math.min(1439, minutes + (event.key === "ArrowUp" ? 1 : -1) * (event.shiftKey ? 15 : 1))); this.display.value = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`; this.commit(); }
+        });
+        SmartTime.instances.set(input, this); this.refresh();
+    }
+    refresh() { if (document.activeElement !== this.display && (!this.display.value || parseClock(this.display.value))) this.display.value = timeLabel(this.input.value); this.display.disabled = this.input.disabled; this.button.disabled = this.input.disabled; }
+    commit() { const value = parseClock(this.display.value); if (value) this.display.value = value; const changed = this.input.value !== (value || ""); this.input.value = value || ""; if (changed) this.input.dispatchEvent(new Event("change", { bubbles: true })); return value; }
+    validate() {
+        const empty = !this.display.value.trim(), value = this.commit();
+        if ((empty && !this.required) || (value && this.input.checkValidity())) return;
+        this.wrapper.classList.add("invalid"); this.display.setAttribute("aria-invalid", "true"); this.display.focus();
+        throw new Error(empty ? `${this.label} maydonini to‘ldiring.` : `${this.label}: vaqtni 24 soatlik formatda kiriting, masalan 14:30.`);
+    }
+    open() {
+        if (this.input.disabled || this.panel) return;
+        SmartSelect.active?.close(); SmartDate.active?.close(); SmartTime.active?.close(); SmartTime.active = this;
+        const value = parseClock(this.display.value) || "09:00"; this.hour = Number(value.slice(0, 2)); this.minute = Number(value.slice(3));
+        this.panel = document.createElement("div"); this.panel.className = "time-popover"; this.panel.id = `${this.input.id}-clock`;
+        this.panel.setAttribute("role", "dialog"); this.panel.setAttribute("aria-label", `${this.label} — vaqt`);
+        (this.input.closest("dialog") || document.body).append(this.panel); this.button.setAttribute("aria-expanded", "true");
+        this.panel.addEventListener("click", (event) => {
+            const button = event.target.closest("button"); if (!button) return;
+            if (button.dataset.hour != null || button.dataset.minute != null) { const key = button.dataset.hour != null ? "hour" : "minute"; this[key] = Number(button.dataset[key]); this.updateSelection(); return; }
+            if (button.hasAttribute("data-time-close")) return this.close(true);
+            if (button.hasAttribute("data-time-apply")) { this.display.value = this.draft(); this.commit(); this.close(true); }
+            if (button.hasAttribute("data-time-clear")) { this.display.value = ""; this.commit(); this.close(true); }
+        });
+        this.panel.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); this.close(true); return; }
+            const grid = event.target.closest(".time-values"); if (!grid) return;
+            const buttons = [...grid.querySelectorAll("button")], index = buttons.indexOf(event.target), columns = getComputedStyle(grid).gridTemplateColumns.split(/\s+/).length;
+            const move = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: columns, ArrowUp: -columns }[event.key];
+            if (move != null) { event.preventDefault(); buttons[Math.max(0, Math.min(buttons.length - 1, index + move))].focus(); }
+        });
+        this.panel.innerHTML = `<div class="time-popover-heading"><div><span>${esc(this.label)}</span><strong class="time-preview">${this.draft()}</strong></div><button type="button" class="icon-button" data-time-close aria-label="Soat tanlovini yopish">${icon("close")}</button></div><div class="time-columns">${[["hour", "Soat", 24], ["minute", "Daqiqa", 60]].map(([key, label, count]) => `<div><div class="time-column-label">${label}</div><div class="time-values ${key}" role="group" aria-label="${label}" data-time-grid="${key}">${Array.from({ length: count }, (_, i) => `<button type="button" data-${key}="${i}" aria-label="${String(i).padStart(2, "0")} ${key === "hour" ? "soat" : "daqiqa"}" aria-pressed="${this[key] === i}" class="${this[key] === i ? "selected" : ""}">${String(i).padStart(2, "0")}</button>`).join("")}</div></div>`).join("")}</div><div class="time-popover-footer"><span>24 soat · Toshkent</span>${this.required ? "" : '<button class="text-button" type="button" data-time-clear>Tozalash</button>'}<button class="button primary" type="button" data-time-apply>Tanlash ${icon("check")}</button></div>`;
+        const rect = this.wrapper.getBoundingClientRect(), width = Math.min(326, innerWidth - 24); this.panel.style.width = `${width}px`;
+        this.panel.style.left = `${Math.max(12, Math.min(rect.left, innerWidth - width - 12))}px`;
+        const height = this.panel.offsetHeight, below = innerHeight - rect.bottom - 12;
+        this.panel.style.top = `${Math.max(12, below >= height || rect.top < height ? Math.min(rect.bottom + 8, innerHeight - height - 12) : rect.top - height - 8)}px`;
+        this.panel.style.maxHeight = `${innerHeight - 24}px`;
+        this.panel.querySelectorAll(".time-values .selected").forEach((button) => button.scrollIntoView({ block: "nearest" }));
+        this.panel.querySelector(".hour .selected").focus();
+    }
+    draft() { return `${String(this.hour).padStart(2, "0")}:${String(this.minute).padStart(2, "0")}`; }
+    updateSelection() { this.panel.querySelector(".time-preview").textContent = this.draft(); for (const key of ["hour", "minute"]) this.panel.querySelectorAll(`[data-${key}]`).forEach((button) => { const selected = Number(button.dataset[key]) === this[key]; button.classList.toggle("selected", selected); button.setAttribute("aria-pressed", String(selected)); }); }
+    close(focus = false) { this.panel?.remove(); this.panel = null; this.button.setAttribute("aria-expanded", "false"); if (SmartTime.active === this) SmartTime.active = null; if (focus && this.display.isConnected) this.display.focus(); }
+}
+class MoneyInput {
+    static instances = new Map();
+    constructor(input) {
+        this.input = input; this.label = document.querySelector(`label[for="${input.id}"]`)?.textContent.replace("*", "").trim() || "Summa";
+        input.type = "text"; input.inputMode = "decimal"; input.autocomplete = "off"; input.classList.add("money-input");
+        input.placeholder = input.required ? "0" : "Masalan, 1 250 000";
+        const wrapper = document.createElement("div"); wrapper.className = "money-field"; input.before(wrapper); wrapper.append(input);
+        const unit = document.createElement("span"); unit.className = "money-unit"; unit.textContent = "so‘m"; unit.setAttribute("aria-hidden", "true"); wrapper.append(unit);
+        input.value = formatMoneyInput(input.value, true);
+        input.addEventListener("focus", () => { if (input.value === "0") input.select(); });
+        input.addEventListener("beforeinput", (event) => {
+            const at = input.selectionStart; if (at !== input.selectionEnd) return;
+            if (event.inputType === "deleteContentBackward" && input.value[at - 1] === " ") { event.preventDefault(); input.setRangeText("", Math.max(0, at - 2), at, "end"); input.dispatchEvent(new Event("input", { bubbles: true })); }
+            if (event.inputType === "deleteContentForward" && input.value[at] === " ") { event.preventDefault(); input.setRangeText("", at, at + 2, "end"); input.dispatchEvent(new Event("input", { bubbles: true })); }
+        });
+        input.addEventListener("input", () => {
+            const significant = input.value.slice(0, input.selectionStart).replace(/\s/g, "").length;
+            input.value = formatMoneyInput(input.value); let at = 0, count = 0;
+            while (at < input.value.length && count < significant) { if (!/\s/.test(input.value[at])) count++; at++; }
+            input.setSelectionRange(at, at); input.setAttribute("aria-invalid", "false");
+        });
+        input.addEventListener("blur", () => { input.value = formatMoneyInput(input.value, true); });
+        MoneyInput.instances.set(input, this);
+    }
+    value() {
+        const value = canonicalMoney(this.input.value);
+        if (value !== null) return value;
+        this.input.setAttribute("aria-invalid", "true"); this.input.focus();
+        throw new Error(`${this.label}: summani raqam bilan kiriting; ko‘pi bilan 12 ta butun va 2 ta kasr raqami bo‘lishi mumkin.`);
+    }
+}
+function enhanceTimes(root = document) {
+    for (const [input, instance] of SmartTime.instances) if (!input.isConnected) { instance.close(); SmartTime.instances.delete(input); }
+    root.querySelectorAll('input[type="time"]').forEach((input) => SmartTime.instances.has(input) ? SmartTime.instances.get(input).refresh() : new SmartTime(input));
+}
+function enhanceMoney(root = document) {
+    for (const input of MoneyInput.instances.keys()) if (!input.isConnected) MoneyInput.instances.delete(input);
+    root.querySelectorAll('input[name="price"], input[name="monthly_budget"]').forEach((input) => { if (!MoneyInput.instances.has(input)) new MoneyInput(input); });
+}
 function enhanceSelects(root = document) {
     for (const [select, instance] of SmartSelect.instances) if (!select.isConnected) { instance.close(); SmartSelect.instances.delete(select); }
     root.querySelectorAll("select").forEach((select) => SmartSelect.instances.has(select) ? SmartSelect.instances.get(select).refresh() : new SmartSelect(select));
     enhanceDates(root);
+    enhanceTimes(root); enhanceMoney(root);
 }
 function fillSelect(select, options, placeholder, value = "") {
     const blank = new Option(placeholder, "");
@@ -297,18 +442,19 @@ function fillSelect(select, options, placeholder, value = "") {
 }
 document.addEventListener("pointerdown", (event) => { const active = SmartSelect.active; if (active && !active.wrapper.contains(event.target) && !active.panel?.contains(event.target)) active.close(); if (rowMenu && !rowMenu.contains(event.target) && !event.target.closest("[data-menu]")) closeRowMenu(); });
 document.addEventListener("pointerdown", (event) => { const active = SmartDate.active; if (active && !active.wrapper.contains(event.target) && !active.panel?.contains(event.target)) active.close(); });
-window.addEventListener("resize", () => { SmartSelect.active?.close(); SmartDate.active?.close(); closeRowMenu(); });
-document.addEventListener("scroll", (event) => { if (SmartDate.active && !SmartDate.active.panel?.contains(event.target)) SmartDate.active.close(); }, true);
+document.addEventListener("pointerdown", (event) => { const active = SmartTime.active; if (active && !active.wrapper.contains(event.target) && !active.panel?.contains(event.target)) active.close(); });
+window.addEventListener("resize", () => { SmartSelect.active?.close(); SmartDate.active?.close(); SmartTime.active?.close(); closeRowMenu(); });
+document.addEventListener("scroll", (event) => { if (SmartDate.active && !SmartDate.active.panel?.contains(event.target)) SmartDate.active.close(); if (SmartTime.active && !SmartTime.active.panel?.contains(event.target)) SmartTime.active.close(); }, true);
 
 const field = (key, label, type = "text", extra = {}) => ({ key, label, type, ...extra });
 const section = (label) => ({ type: "section", label });
 const enumOptions = (values) => Object.entries(values).map(([value, label]) => ({ value, label }));
 const moduleDefinitions = {
-    schedules: { title: "Haftalik jadval", singular: "Jadval", add: "Jadval qo‘shish", icon: "schedules", group: "O‘QUV JARAYONI", path: "/group-schedules/", paged: true, mode: "week", modes: ["week", "table"], read: ["boss", "admin"], write: ["boss", "admin"], description: "Hafta ritmi: qaysi guruh, qaysi kun, qaysi xonada.", fields: [field("group_id", "Guruh", "select", { source: "groups", required: true, full: true }), field("weekday", "Hafta kuni", "select", { choices: enumOptions(weekdays), required: true, default: "1" }), field("room_id", "Xona", "select", { source: "rooms", required: true }), field("start_time", "Boshlanish vaqti", "time", { required: true, default: "14:00" }), field("end_time", "Tugash vaqti", "time", { required: true, default: "16:00" })] },
-    sessions: { title: "Darslar", singular: "Dars", add: "Dars qo‘shish", icon: "sessions", group: "O‘QUV JARAYONI", path: "/lesson-sessions/", paged: true, mode: "agenda", modes: ["agenda", "table"], read: ["boss", "admin"], write: ["boss", "admin"], description: "Aniq sana, o‘tilgan mavzu va darsning o‘z tarixi.", fields: [section("DARS VA JOY"), field("group_id", "Guruh", "select", { source: "groups", required: true, full: true }), field("date", "Dars sanasi", "date", { required: true }), field("teacher_id", "Dars o‘tadigan o‘qituvchi", "select", { source: "teachers", required: true }), field("start_time", "Boshlanish vaqti", "time", { required: true, default: "14:00" }), field("end_time", "Tugash vaqti", "time", { required: true, default: "16:00" }), field("room_id", "Xona", "select", { source: "rooms", required: true }), field("status", "Dars holati", "select", { choices: enumOptions(sessionStatuses), required: true, default: "rejalashtirilgan" }), section("MAVZU VA XULOSA"), field("topic", "Dars mavzusi", "text", { max: 200, full: true, placeholder: "Masalan, Python: ro‘yxatlar va sikllar" }), field("note", "Dars haqida izoh", "textarea", { max: 5000, full: true, placeholder: "Nimalar o‘tildi? Keyingi dars uchun nimalar kerak?" })] },
+    schedules: { title: "Haftalik jadval", singular: "Jadval", add: "Jadval qo‘shish", icon: "schedules", group: "O‘QUV JARAYONI", path: "/group-schedules/", paged: true, mode: "week", modes: ["week", "table"], read: ["boss", "admin"], write: ["boss", "admin"], description: "Hafta ritmi: qaysi guruh, qaysi kun, qaysi xonada.", fields: [field("group_id", "Guruh", "select", { source: "groups", required: true, full: true }), field("weekday", "Hafta kuni", "select", { choices: enumOptions(weekdays), required: true, default: "1" }), field("room_id", "Xona", "select", { source: "rooms", required: true }), field("start_time", "Boshlanish vaqti", "time", { required: true, default: "14:00" }), field("end_time", "Tugash vaqti", "time", { required: true, default: "16:00", helper: "Vaqtni 24 soatlik formatda tanlang." })] },
+    sessions: { title: "Darslar", singular: "Dars", add: "Dars qo‘shish", icon: "sessions", group: "O‘QUV JARAYONI", path: "/lesson-sessions/", paged: true, mode: "agenda", modes: ["agenda", "table"], read: ["boss", "admin"], write: ["boss", "admin"], description: "Aniq sana, o‘tilgan mavzu va darsning o‘z tarixi.", fields: [section("DARS VA JOY"), field("group_id", "Guruh", "select", { source: "groups", required: true, full: true }), field("date", "Dars sanasi", "date", { required: true }), field("teacher_id", "Dars o‘tadigan o‘qituvchi", "select", { source: "teachers", required: true }), field("start_time", "Boshlanish vaqti", "time", { required: true, default: "14:00" }), field("end_time", "Tugash vaqti", "time", { required: true, default: "16:00", helper: "Vaqtni 24 soatlik formatda tanlang." }), field("room_id", "Xona", "select", { source: "rooms", required: true }), field("status", "Dars holati", "select", { choices: enumOptions(sessionStatuses), required: true, default: "rejalashtirilgan" }), section("MAVZU VA XULOSA"), field("topic", "Dars mavzusi", "text", { max: 200, full: true, placeholder: "Masalan, Python: ro‘yxatlar va sikllar" }), field("note", "Dars haqida izoh", "textarea", { max: 5000, full: true, placeholder: "Nimalar o‘tildi? Keyingi dars uchun nimalar kerak?" })] },
     leads: { title: "Lidlar", singular: "Lid", add: "Yangi lid", icon: "leads", group: "CRM VA QABUL", path: "/leads/", paged: true, mode: "kanban", modes: ["kanban", "table"], read: ["boss", "admin", "manager"], write: ["boss", "admin"], description: "Birinchi qiziqishdan o‘quvchingiz bo‘lgunigacha.", fields: [section("ASOSIY MA’LUMOTLAR"), field("first_name", "Ism", "text", { required: true, max: 60 }), field("last_name", "Familiya", "text", { max: 60 }), field("phone", "Telefon", "tel", { required: true, placeholder: "+998 90 123 45 67" }), field("branch_id", "Filial", "select", { source: "branches", required: true }), section("QIZIQISH VA ALOQA"), field("course_id", "Qiziqqan kursi", "select", { source: "courses" }), field("source_id", "Qayerdan keldi?", "select", { source: "sources" }), field("status_id", "Qabul bosqichi", "select", { source: "statuses" }), field("assigned_to", "Mas’ul xodim", "select", { source: "employees" }), field("comment", "Suhbat va izoh", "textarea", { full: true, placeholder: "Qaysi yo‘nalishga qiziqyapti? Qachon bog‘lanish qulay?" }), field("lost_reason", "Yo‘qotilish sababi", "text", { full: true, max: 200, helper: "Lid yo‘qotilgan bo‘lsa, sababini yozishingiz mumkin." })] },
     students: { title: "O‘quvchilar", singular: "O‘quvchi", add: "O‘quvchi qo‘shish", icon: "students", group: "O‘QUV JARAYONI", path: "/students/", paged: true, mode: "table", modes: ["table", "grid"], write: ["boss", "admin"], description: "Ismlar, aloqa, holat va o‘quvchi haqida kerakli ma’lumotlar.", fields: [section("SHAXSIY MA’LUMOTLAR"), field("first_name", "Ism", "text", { required: true, max: 60 }), field("last_name", "Familiya", "text", { required: true, max: 60 }), field("phone", "O‘quvchi telefoni", "tel", { required: true }), field("parent_phone", "Ota-ona telefoni", "tel", { required: true }), field("birth_date", "Tug‘ilgan sana", "date"), field("branch_id", "Filial", "select", { source: "branches", required: true }), section("QABUL MA’LUMOTLARI"), field("source_id", "Qabul manbasi", "select", { source: "sources" }), field("lead_id", "Bog‘langan lid", "select", { source: "leads" }), field("status", "O‘quvchi holati", "select", { choices: enumOptions(studentStatuses), editOnly: true, full: true })] },
-    groups: { title: "Guruhlar", singular: "Guruh", add: "Guruh ochish", icon: "groups", group: "O‘QUV JARAYONI", path: "/groups/", paged: true, mode: "grid", modes: ["grid", "table"], read: ["boss", "admin"], write: ["boss", "admin"], description: "Har bir guruhning o‘qituvchisi, xonasi va rivojlanish maydoni.", fields: [section("GURUHNING ASOSI"), field("name", "Guruh nomi", "text", { required: true, full: true, max: 80, placeholder: "Masalan, PY-26-01" }), field("branch_id", "Filial", "select", { source: "branches", required: true }), field("course_id", "Kurs", "select", { source: "courses", required: true }), field("teacher_id", "O‘qituvchi", "select", { source: "teachers", required: true }), field("room_id", "Xona", "select", { source: "rooms", required: true }), section("MUDDAT VA SHARTLAR"), field("start_date", "Boshlanish sanasi", "date", { required: true }), field("end_date", "Tugash sanasi", "date"), field("max_students", "O‘quvchilar chegarasi", "number", { required: true, min: 1, max: 32767, helper: "Xona sig‘imidan oshmasligi kerak." }), field("price", "Oylik narx, so‘m", "number", { min: 0, step: "0.01", helper: "Bo‘sh qoldirilsa, kursning standart narxi olinadi." }), field("status", "Guruh holati", "select", { choices: enumOptions(groupStatuses), required: true, default: "rejalashtirilgan", full: true })] },
+    groups: { title: "Guruhlar", singular: "Guruh", add: "Guruh ochish", icon: "groups", group: "O‘QUV JARAYONI", path: "/groups/", paged: true, mode: "grid", modes: ["grid", "table"], read: ["boss", "admin"], write: ["boss", "admin"], description: "Har bir guruhning o‘qituvchisi, xonasi va rivojlanish maydoni.", fields: [section("GURUHNING ASOSI"), field("name", "Guruh nomi", "text", { required: true, full: true, max: 80, placeholder: "Masalan, PY-26-01" }), field("branch_id", "Filial", "select", { source: "branches", required: true }), field("course_id", "Kurs", "select", { source: "courses", required: true }), field("teacher_id", "O‘qituvchi", "select", { source: "teachers", required: true }), field("room_id", "Xona", "select", { source: "rooms", required: true }), section("MUDDAT VA SHARTLAR"), field("start_date", "Boshlanish sanasi", "date", { required: true }), field("end_date", "Tugash sanasi", "date", { helper: "Kurs va boshlanish sanasi asosida tavsiya beriladi." }), field("max_students", "O‘quvchilar chegarasi", "number", { required: true, min: 1, max: 32767, helper: "Xona sig‘imidan oshmasligi kerak." }), field("price", "Oylik narx, so‘m", "number", { min: 0, step: "0.01", helper: "Bo‘sh qoldirilsa, kursning standart narxi olinadi." }), field("status", "Guruh holati", "select", { choices: enumOptions(groupStatuses), required: true, default: "rejalashtirilgan", full: true })] },
     courses: { title: "Kurslar", singular: "Kurs", add: "Kurs qo‘shish", icon: "courses", group: "O‘QUV JARAYONI", path: "/courses/", mode: "grid", modes: ["grid", "table"], write: ["boss", "admin"], description: "Markazingiz taklif qiladigan yo‘nalishlar va o‘quv dasturlari.", fields: [field("name", "Kurs nomi", "text", { required: true, full: true, max: 120, placeholder: "Masalan, Python Backend" }), field("description", "Kurs haqida", "textarea", { full: true }), field("duration_months", "Davomiyligi, oy", "number", { min: 1 }), field("lessons_count", "Jami darslar", "number", { min: 1 }), field("price", "Oylik narx, so‘m", "number", { required: true, min: 0, step: "0.01", default: 0 }), field("min_age", "Eng kichik yosh", "number", { min: 0, max: 100 })] },
     employees: { title: "Jamoa", singular: "Xodim", add: "Xodim qo‘shish", icon: "employees", group: "JAMOA VA TASHKILOT", path: "/employees/", mode: "grid", modes: ["grid", "table"], activePair: true, read: ["boss", "admin"], write: ["boss", "admin"], description: "Markazingizni oldinga boshlaydigan odamlar.", fields: [section("SHAXSIY MA’LUMOTLAR"), field("first_name", "Ism", "text", { required: true, max: 60 }), field("last_name", "Familiya", "text", { required: true, max: 60 }), field("phone", "Telefon / login", "tel", { required: true }), field("email", "Elektron pochta", "email"), field("birth_date", "Tug‘ilgan sana", "date", { required: true }), field("photo_url", "Rasm havolasi", "url"), section("ISH JOYI VA KIRISH"), field("branch_id", "Asosiy filial", "select", { required: true, source: "branches" }), field("position", "Lavozim", "text", { required: true, max: 80 }), field("hired_at", "Ishga kirgan sana", "date", { required: true }), field("password", "Parol", "password", { createRequired: true, helper: "Tahrirlashda bo‘sh qoldirsangiz, avvalgi parol saqlanadi." })] },
     teachers: { title: "O‘qituvchilar", singular: "O‘qituvchi profili", add: "O‘qituvchi biriktirish", icon: "teachers", group: "JAMOA VA TASHKILOT", path: "/teacher-profiles/", mode: "grid", modes: ["grid", "table"], read: ["boss", "admin"], write: ["boss", "admin"], description: "Bilim beradigan ustozlar va ularning yo‘nalishlari.", fields: [field("employee_id", "Jamoa a’zosi", "select", { required: true, source: "employees", full: true, createOnly: true, helper: "Avval xodim Jamoa bo‘limida yaratilgan bo‘lishi kerak." }), field("specialization", "Mutaxassislik", "text", { full: true, max: 120, placeholder: "Masalan, Python / IELTS / Grafik dizayn" }), field("experience_years", "Tajriba, yil", "number", { min: 0, max: 80 }), field("max_groups", "Bir vaqtdagi guruhlar limiti", "number", { min: 0, max: 32767 }), field("bio", "Ustoz haqida", "textarea", { full: true })] },
@@ -465,19 +611,19 @@ function emptyLessonAgenda() {
     return `<div class="lesson-empty"><div class="lesson-empty-art" aria-hidden="true"><div class="empty-calendar-top"><i></i><i></i></div><div class="empty-calendar-days">${Array.from({ length: 15 }, (_, i) => `<span${i === 7 ? ' class="marked"' : ""}>${i === 7 ? icon("check") : ""}</span>`).join("")}</div></div><h3>${filtered ? "Bu tanlovda dars topilmadi" : "Yangi darslar uchun joy tayyor"}</h3><p>${filtered ? "Boshqa sana, guruh yoki holatni tanlab ko‘ring." : "Haftalik jadvaldan darslar yarating yoki alohida dars qo‘shing."}</p><div>${filtered ? '<button class="button secondary" type="button" data-action="clear-filters">Filtrlarni tozalash</button>' : ""}${canWrite() ? `<button class="button primary" type="button" data-action="create">${icon("plus")}Dars qo‘shish</button>` : ""}</div></div>`;
 }
 function timetableCard(row) {
-    return `<article class="timetable-card tone-${toneId(row.group_id)}"><div class="timetable-card-top"><span class="time-label">${timeLabel(row.start_time)}–${timeLabel(row.end_time)}</span><button class="icon-button" type="button" data-menu="${row.id}" aria-label="${esc(recordName(row))} — amallar">${icon("more")}</button></div><button class="cell-link timetable-name" type="button" data-detail="${row.id}">${esc(row.group.name)}</button><div class="timetable-meta"><span>${icon("rooms")}${esc(row.room.name)}</span><span>${icon("teachers")}${esc(fullName(row.group.teacher))}</span></div><span class="cell-sub">${dateLabel(row.group.start_date)} — ${row.group.end_date ? dateLabel(row.group.end_date) : "davom etmoqda"}</span>${!["faol", "rejalashtirilgan"].includes(row.group.status) ? statusPill(row.group.status, "group") : ""}</article>`;
+    return `<article class="timetable-card tone-${toneId(row.group_id)}"><div class="timetable-card-top"><span class="time-label">${timeLabel(row.start_time)}<span>–</span>${timeLabel(row.end_time)}</span><button class="icon-button" type="button" data-menu="${row.id}" aria-label="${esc(recordName(row))} — amallar">${icon("more")}</button></div><div class="schedule-card-body"><button class="cell-link timetable-name" type="button" data-detail="${row.id}">${esc(row.group.name)}</button><div class="schedule-teacher">${avatar(fullName(row.group.teacher), "small")}<span><small>O‘qituvchi</small><strong>${esc(fullName(row.group.teacher))}</strong></span></div><div class="schedule-room">${icon("rooms")}<span>${esc(row.room.name)}</span><b>${durationLabel(lessonMinutes(row))}</b></div><div class="schedule-dates"><span>Amal qilish muddati</span><p>${dateLabel(row.group.start_date)}<i>→</i>${row.group.end_date ? dateLabel(row.group.end_date) : "Davom etmoqda"}</p></div>${!["faol", "rejalashtirilgan"].includes(row.group.status) ? statusPill(row.group.status, "group") : ""}</div></article>`;
 }
 function renderTimetable(rows) {
     if (state.mode === "week") return `<div class="week-board${state.filters.weekday ? " single-day" : ""}">${Object.entries(weekdays).filter(([day]) => !state.filters.weekday || String(state.filters.weekday) === day).map(([day, name]) => {
         const slots = rows.filter((r) => String(r.weekday) === day);
-        return `<section class="week-day"><div class="week-day-heading"><h3>${name}</h3><span>${slots.length} dars</span>${canWrite() ? `<button class="icon-button" type="button" data-create-day="${day}" aria-label="${name} kuniga jadval qo‘shish">${icon("plus")}</button>` : ""}</div>${slots.length ? slots.map((row) => timetableCard(row)).join("") : '<div class="day-free">Erkin kun<span>Bu sahifada dars yo‘q</span></div>'}</section>`;
+        return `<section class="week-day${slots.length ? " has-slots" : ""}${Number(day) >= 6 ? " weekend" : ""}"><div class="week-day-heading"><span class="week-day-label"><h3>${name}</h3><small>${slots.length ? `${slots.length} ta vaqt oralig‘i` : "Shu sahifada bo‘sh"}</small></span>${canWrite() ? `<button class="icon-button" type="button" data-create-day="${day}" aria-label="${name} kuniga jadval qo‘shish">${icon("plus")}</button>` : ""}</div>${slots.length ? slots.map((row) => timetableCard(row)).join("") : `<div class="day-free">${canWrite() ? `<button type="button" class="free-day-add" data-create-day="${day}" aria-label="${name}: vaqt belgilash">${icon("plus")}Vaqt belgilang</button>` : ""}</div>`}</section>`;
     }).join("")}</div>`;
     return lessonAgenda(rows);
 }
 function listShell() {
     if (state.view === "sessions") return lessonShell();
     const def = moduleDefinitions[state.view];
-    $("page-content").innerHTML = `<section class="panel data-panel"><div class="list-top"><div class="list-title"><h2>${esc(def.title)}</h2><span id="list-count" class="count-badge">—</span></div><div class="list-actions">${def.modes.length > 1 ? `<div class="view-toggle" role="group" aria-label="Ko‘rinish">${def.modes.map((mode) => `<button type="button" data-mode="${mode}" class="${state.mode === mode ? "active" : ""}" aria-label="${mode === "table" ? "Jadval" : mode === "kanban" ? "Kanban" : mode === "workflow" ? "Bosqichlar" : mode === "week" ? "Haftalik" : mode === "agenda" ? "Kunlik darslar" : "Kartochkalar"} ko‘rinishi" aria-pressed="${state.mode === mode}">${icon(mode === "kanban" || mode === "workflow" ? "statuses" : mode === "week" ? "schedules" : mode === "agenda" ? "sessions" : mode)}</button>`).join("")}</div>` : ""}<button class="icon-button bordered" type="button" data-action="refresh" aria-label="Ro‘yxatni yangilash">${icon("refresh")}</button></div></div><div class="toolbar"><div class="search-field">${icon("search")}<input id="record-search" data-filter="search" placeholder="${esc(def.title)} bo‘yicha qidirish…" aria-label="Ro‘yxatdan qidirish" autocomplete="off" value="${esc(state.filters.search || "")}"></div>${filtersFor(state.view).map((filter) => `<select id="filter-${filter.key}" data-filter="${filter.key}" data-label="${esc(filter.label)}"><option value="">${esc(filter.label)}</option>${filter.options.map((option) => `<option value="${esc(option.value)}" ${String(state.filters[filter.key]) === String(option.value) ? "selected" : ""}>${esc(option.label)}</option>`).join("")}</select>`).join("")}<button class="text-button" type="button" data-action="clear-filters" ${Object.values(state.filters).some(Boolean) ? "" : "hidden"}>Tozalash</button></div>${timetableControls()}<div id="bulk-bar" class="bulk-bar" hidden></div><div id="records"></div><div class="table-footer"><span id="result-count" role="status"></span><div class="pagination"><button class="icon-button" type="button" id="previous-page" data-page="-1" aria-label="Oldingi sahifa">${icon("left")}</button><span class="page-position" id="page-position">1 / 1</span><button class="icon-button" type="button" id="next-page" data-page="1" aria-label="Keyingi sahifa">${icon("right")}</button></div></div></section>`;
+    $("page-content").innerHTML = `<section class="panel data-panel${state.view === "schedules" ? " schedule-panel" : ""}"><div class="list-top"><div class="list-title"><h2>${esc(def.title)}</h2><span id="list-count" class="count-badge">—</span></div><div class="list-actions">${def.modes.length > 1 ? `<div class="view-toggle" role="group" aria-label="Ko‘rinish">${def.modes.map((mode) => `<button type="button" data-mode="${mode}" class="${state.mode === mode ? "active" : ""}" aria-label="${mode === "table" ? "Jadval" : mode === "kanban" ? "Kanban" : mode === "workflow" ? "Bosqichlar" : mode === "week" ? "Haftalik" : mode === "agenda" ? "Kunlik darslar" : "Kartochkalar"} ko‘rinishi" aria-pressed="${state.mode === mode}">${icon(mode === "kanban" || mode === "workflow" ? "statuses" : mode === "week" ? "schedules" : mode === "agenda" ? "sessions" : mode)}</button>`).join("")}</div>` : ""}<button class="icon-button bordered" type="button" data-action="refresh" aria-label="Ro‘yxatni yangilash">${icon("refresh")}</button></div></div><div class="toolbar"><div class="search-field">${icon("search")}<input id="record-search" data-filter="search" placeholder="${esc(def.title)} bo‘yicha qidirish…" aria-label="Ro‘yxatdan qidirish" autocomplete="off" value="${esc(state.filters.search || "")}"></div>${filtersFor(state.view).map((filter) => `<select id="filter-${filter.key}" data-filter="${filter.key}" data-label="${esc(filter.label)}"><option value="">${esc(filter.label)}</option>${filter.options.map((option) => `<option value="${esc(option.value)}" ${String(state.filters[filter.key]) === String(option.value) ? "selected" : ""}>${esc(option.label)}</option>`).join("")}</select>`).join("")}<button class="text-button" type="button" data-action="clear-filters" ${Object.values(state.filters).some(Boolean) ? "" : "hidden"}>Tozalash</button></div>${timetableControls()}<div id="bulk-bar" class="bulk-bar" hidden></div><div id="records"></div><div class="table-footer"><span id="result-count" role="status"></span><div class="pagination"><button class="icon-button" type="button" id="previous-page" data-page="-1" aria-label="Oldingi sahifa">${icon("left")}</button><span class="page-position" id="page-position">1 / 1</span><button class="icon-button" type="button" id="next-page" data-page="1" aria-label="Keyingi sahifa">${icon("right")}</button></div></div></section>`;
     enhanceSelects($("page-content")); syncLessonControls();
 }
 function renderRecords() {
@@ -492,7 +638,9 @@ function renderRecords() {
     const start = state.total ? (state.page - 1) * state.size + 1 : 0;
     $("result-count").textContent = `${state.total} ta yozuvdan ${start}–${Math.min(state.page * state.size, state.total)} ko‘rsatilmoqda`;
     document.querySelector('[data-action="clear-filters"]').hidden = !Object.values(state.filters).some(Boolean);
-    if (!visible.length) {
+    if (state.view === "schedules" && state.mode === "week") {
+        $("records").innerHTML = renderTimetable(visible);
+    } else if (!visible.length) {
         $("records").innerHTML = `<div class="empty-state"><div class="empty-symbol">${icon(def.icon)}</div><h3>${Object.values(state.filters).some(Boolean) ? "Mos natija topilmadi" : "Bu yerda yangi boshlanish bor"}</h3><p>${Object.values(state.filters).some(Boolean) ? "Qidiruv yoki filtrlarni o‘zgartirib ko‘ring." : `${esc(def.singular)} qo‘shib, markazingiz ma’lumotlarini to‘ldirishni boshlang.`}</p>${canWrite() ? `<button type="button" class="button secondary" data-action="create">${icon("plus")}${esc(def.add)}</button>` : ""}</div>`;
         if (state.view === "sessions" && state.mode === "agenda") $("records").innerHTML = emptyLessonAgenda();
     } else if (["week", "agenda"].includes(state.mode)) {
@@ -569,6 +717,7 @@ function renderNavigation() {
 }
 function renderHeading() {
     document.body.classList.toggle("sessions-theme", state.view === "sessions");
+    document.body.classList.toggle("schedules-theme", state.view === "schedules");
     const overview = state.view === "overview", def = moduleDefinitions[state.view];
     $("breadcrumb-current").textContent = overview ? "Umumiy ko‘rinish" : def.title;
     $("section-label").textContent = overview ? "BOSHQARUV MARKAZI" : def.group;
@@ -690,16 +839,28 @@ function updateEditorHints(changed = "") {
         $("hint-max_students").textContent = room ? `Xona sig‘imi: ${room.capacity} o‘rin. Hozir ${editor.row?.current_students || 0} o‘quvchi bor.` : "Avval xonani tanlang.";
         $("hint-price").textContent = course ? `Bo‘sh qoldirilsa: ${money.format(course.price)} so‘m / oy — kurs narxi.` : "Bo‘sh qoldirilsa, kursning standart narxi olinadi.";
         $("edit-end_date").min = $("edit-start_date").value;
+        const recommended = suggestGroupEnd($("edit-start_date").value, course?.duration_months), hint = $("hint-end_date");
+        if (hint) {
+            hint.className = "end-date-suggestion";
+            hint.innerHTML = recommended ? `<span><strong>${dateLabel(recommended)}</strong><small>Boshlanish + ${course.duration_months} oy</small></span><button type="button" data-use-end-date="${recommended}" ${$("edit-end_date").value === recommended ? "disabled" : ""}>${$("edit-end_date").value === recommended ? `${icon("check")}Tanlangan` : `Qo‘llash ${icon("arrow")}`}</button>` : !course ? "Kursni tanlang — tugash sanasini tavsiya qilamiz." : !course.duration_months ? "Kurs davomiyligi belgilanmagan. Sanani qo‘lda tanlang." : "Boshlanish sanasini tanlang — tugash sanasini tavsiya qilamiz.";
+        }
     }
     if (editor.module === "statuses" && ["is_won", "is_lost"].includes(changed) && $(`edit-${changed}`).checked) $(changed === "is_won" ? "edit-is_lost" : "edit-is_won").checked = false;
+    if (["schedules", "sessions"].includes(editor.module)) {
+        const start = $("edit-start_time").value, end = $("edit-end_time").value, hint = $("hint-end_time");
+        if (hint) { hint.textContent = start && end ? end > start ? `Davomiyligi: ${durationLabel(lessonMinutes({ start_time: start, end_time: end }))}` : "Tugash vaqti boshlanishdan keyin bo‘lishi kerak." : "Vaqtni 24 soatlik formatda tanlang."; hint.classList.toggle("invalid-hint", Boolean(start && end && end <= start)); }
+    }
     enhanceDates($("editor-fields"));
+    enhanceTimes($("editor-fields"));
 }
 function editorPayload() {
     const payload = {};
     for (const f of state.editor.fields) {
         if (!f.key) continue;
         const element = $(`edit-${f.key}`), required = f.required || (f.createRequired && !state.editor.row) || f.key === "status";
-        let value = f.type === "checkbox" ? element.checked : f.type === "password" ? element.value : element.value.trim();
+        SmartTime.instances.get(element)?.validate();
+        const amount = MoneyInput.instances.get(element);
+        let value = amount ? amount.value() : f.type === "checkbox" ? element.checked : f.type === "password" ? element.value : element.value.trim();
         if (required && (value === "" || value == null)) {
             const select = SmartSelect.instances.get(element) || SmartDate.instances.get(element);
             if (select) { select.button.setAttribute("aria-invalid", "true"); select.button.focus(); }
@@ -712,6 +873,7 @@ function editorPayload() {
         else if (f.type !== "checkbox" && !required && value === "" && f.key !== "photo_url") value = null;
         payload[f.key] = value;
     }
+    if (payload.start_time && payload.end_time && payload.end_time <= payload.start_time) { SmartTime.instances.get($("edit-end_time"))?.display.focus(); throw new Error("Tugash vaqti boshlanishdan keyin bo‘lishi kerak."); }
     return payload;
 }
 function recordPath(module, row) { const def = moduleDefinitions[module]; return module === "assignments" ? `${def.path}${row.employee_id}/${row.role_id}` : `${def.path}${keyOf(row, module)}`; }
@@ -904,6 +1066,7 @@ $("editor-form").addEventListener("submit", saveEditor);
 document.querySelectorAll("dialog").forEach((dialog) => dialog.addEventListener("close", () => {
     if (SmartSelect.active?.select.closest("dialog") === dialog) SmartSelect.active.close();
     if (SmartDate.active?.input.closest("dialog") === dialog) SmartDate.active.close();
+    if (SmartTime.active?.input.closest("dialog") === dialog) SmartTime.active.close();
     if (dialog.id === "editor-dialog") state.editor = null;
 }));
 $("confirm-form").addEventListener("submit", async (event) => {
@@ -937,6 +1100,7 @@ document.addEventListener("click", async (event) => {
         if (target.matches("a.nav-link")) closeMobileMenu();
         if (target.dataset.openView) { document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close()); await navigate(target.dataset.openView); return; }
         if (target.dataset.quickCreate) return openEditor(target.dataset.quickCreate);
+        if (target.dataset.useEndDate) { const input = $("edit-end_date"); input.value = target.dataset.useEndDate; input.dispatchEvent(new Event("change", { bubbles: true })); SmartDate.instances.get(input)?.button.focus(); return; }
         if (target.dataset.openDate) { SmartDate.instances.get(document.querySelector(`input[data-filter="${target.dataset.openDate}"]`))?.open(); return; }
         if (target.dataset.lessonPeriod) { Object.assign(state.filters, lessonPeriod(target.dataset.lessonPeriod)); applyFilters(); return; }
         if (target.dataset.createDay) return openEditor("schedules", null, { weekday: target.dataset.createDay });
@@ -982,7 +1146,7 @@ document.addEventListener("dragleave", (event) => { const column = event.target.
 document.addEventListener("drop", async (event) => { const column = event.target.closest("[data-stage]"); if (!column || !state.dragging) return; event.preventDefault(); const row = state.rows.find((r) => String(r.id) === state.dragging); state.dragging = null; document.querySelectorAll(".drag-over,.dragging").forEach((el) => el.classList.remove("drag-over", "dragging")); if (row && String(row.status?.id ?? "") !== column.dataset.stage) await moveLead(row, column.dataset.stage); });
 document.addEventListener("dragend", () => { state.dragging = null; document.querySelectorAll(".drag-over,.dragging").forEach((el) => el.classList.remove("drag-over", "dragging")); });
 document.addEventListener("keydown", (event) => {
-    if (event.target.closest(".calendar-popover")) return;
+    if (event.target.closest(".calendar-popover, .time-popover")) return;
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k" && state.user && !$("app-view").hidden) { event.preventDefault(); openCommand(); return; }
     if (event.key === "Escape") closeRowMenu();
     if (event.key === "Escape" && $("sidebar").classList.contains("open")) { closeMobileMenu(); $("mobile-menu").focus(); }
