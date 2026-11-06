@@ -3,7 +3,7 @@ const state = {
     token: sessionStorage.getItem("erp_access_token"), refresh: sessionStorage.getItem("erp_refresh_token"),
     options: null, user: null, view: "overview", mode: "table", branch: "", filters: {},
     rows: [], total: 0, page: 1, pages: 1, size: 20, request: 0, selected: new Set(),
-    editor: null, confirm: null, dragging: null, dashboard: null,
+    editor: null, confirm: null, dragging: null, dashboard: null, overviewSeries: "students",
 };
 const money = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 });
 const months = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"];
@@ -713,34 +713,43 @@ function updateSelection() {
 async function refreshOptions() {
     state.options = await api("/workspace/options"); state.user = state.options.user;
     $("account-name").textContent = state.user.name;
+    $("top-account-name").textContent = state.user.name;
     $("account-role").textContent = state.user.is_superadmin ? "Asosiy administrator" : state.user.roles.map((r) => r.name).join(", ") || state.user.position || "Jamoa a’zosi";
     $("account-avatar").textContent = initials(state.user.name); $("top-avatar").textContent = initials(state.user.name);
     const globalAccess = state.user.is_superadmin || state.user.roles.some((role) => ["boss", "admin"].includes(role.code) && role.branch_id == null);
     if (!globalAccess && state.options.branches.length && !state.options.branches.some((branch) => String(branch.id) === state.branch)) state.branch = String(state.options.branches[0].id);
     fillSelect($("context-branch"), state.options.branches, "Barcha filiallar", state.branch);
     if (!globalAccess && state.options.branches.length) { $("context-branch").options[0].remove(); SmartSelect.instances.get($("context-branch"))?.refresh(); }
-    const checks = [state.options.branches.length, state.options.courses.length, state.options.rooms.length, state.options.employees.some((r) => r.is_teacher), state.options.statuses.length];
-    const completed = checks.filter(Boolean).length;
-    $("setup-count").textContent = `${completed}/5`; $("setup-progress").style.width = `${completed * 20}%`;
-    $("setup-button").querySelector("small").innerHTML = `${completed === 5 ? "Barcha asoslar tayyor" : "Keyingi qadamni boshlang"} <span>↗</span>`;
+    const steps = setupSteps(), completed = steps.filter(([, , done]) => done).length;
+    $("setup-count").textContent = `${completed}/${steps.length}`; $("setup-progress").style.width = `${completed / steps.length * 100}%`;
+    $("setup-button").querySelector("small").innerHTML = `${completed === steps.length ? "Barcha asoslar tayyor" : "Keyingi qadamni boshlang"} <span>↗</span>`;
     $("setup-button").hidden = !hasRole("boss", "admin");
     enhanceSelects($("app-view")); renderNavigation();
 }
 function renderNavigation() {
     const sections = [["BOSHQARUV", ["overview"]], ["O‘QUV JARAYONI", ["students", "groups", "enrollments", "schedules", "sessions", "courses"]], ["CRM VA QABUL", ["leads"]], ["JAMOA VA TASHKILOT", ["employees", "teachers", "branches", "rooms"]], ["SOZLAMALAR", ["sources", "statuses", "roles", "assignments"]]];
-    $("navigation").innerHTML = sections.map(([caption, keys]) => {
-        const allowed = keys.filter((key) => key === "overview" || canRead(key));
-        return allowed.length ? `<div class="nav-section"><div class="nav-caption">${caption}</div>${allowed.map((key) => `<a class="nav-link ${state.view === key ? "active" : ""}" href="#${key}" ${state.view === key ? 'aria-current="page"' : ""}>${icon(key === "overview" ? "dashboard" : moduleDefinitions[key].icon)}<span>${key === "overview" ? "Umumiy ko‘rinish" : moduleDefinitions[key].title}</span>${key === "leads" ? '<span class="nav-tag">CRM</span>' : ""}</a>`).join("")}</div>` : "";
-    }).join("");
+    const link = (key) => `<a class="nav-link ${state.view === key ? "active" : ""}" href="#${key}" ${state.view === key ? 'aria-current="page"' : ""}>${icon(key === "overview" ? "dashboard" : moduleDefinitions[key].icon)}<span>${key === "overview" ? "Umumiy ko‘rinish" : moduleDefinitions[key].title}</span>${key === "leads" ? '<span class="nav-tag">CRM</span>' : ""}</a>`;
+    const groups = sections.map(([caption, keys]) => [caption, keys.filter(canRead)]);
+    const renderGroup = ([caption, keys]) => keys.length ? `<div class="nav-section"><div class="nav-caption">${caption}</div>${keys.map(link).join("")}</div>` : "";
+    if (state.view === "overview") {
+        const more = groups.slice(2).map(renderGroup).join("");
+        const expanded = $("navigation").querySelector(".overview-nav-more")?.open;
+        $("navigation").innerHTML = groups.slice(0, 2).flatMap(([, keys]) => keys).map(link).join("") + (more ? `<details class="overview-nav-more" ${expanded ? "open" : ""}><summary>${icon("roles")}<span>Sozlash</span>${icon("chevron")}</summary>${more}</details>` : "");
+    } else $("navigation").innerHTML = groups.map(renderGroup).join("");
 }
 function renderHeading() {
     document.body.classList.toggle("sessions-theme", state.view === "sessions");
     document.body.classList.toggle("schedules-theme", state.view === "schedules");
     const overview = state.view === "overview", def = moduleDefinitions[state.view];
+    document.body.classList.toggle("overview-theme", overview);
+    $("overview-setup-link").hidden = !hasRole("boss", "admin");
     $("breadcrumb-current").textContent = overview ? "Umumiy ko‘rinish" : def.title;
     $("section-label").textContent = overview ? "BOSHQARUV MARKAZI" : def.group;
-    $("page-heading").innerHTML = `<div><h1>${overview ? `Salom, ${esc(state.user.first_name)}<span class="greeting-dot">.</span>` : esc(def.title)}</h1><p>${overview ? "Markazingizda nimalar bo‘layotganini bir qarashda ko‘ring." : esc(def.description)}</p></div><div class="heading-actions">${overview ? `<button type="button" class="button secondary" data-action="refresh">${icon("refresh")}<span class="button-label">Yangilash</span></button>` : `<button type="button" class="button secondary" data-action="export" title="Ko‘rinayotgan ro‘yxatni CSV formatida olish">${icon("download")}<span class="button-label">Eksport</span></button>`}${(overview && hasRole("admin", "boss")) || (!overview && canWrite()) ? `<button type="button" class="button primary" data-action="${overview ? "quick-lead" : "create"}">${icon("plus")}${overview ? "Yangi lid" : esc(def.add)}</button>` : ""}</div>`;
-    $("footer-note").textContent = overview ? "TA’LIM UCHUN YARATILGAN" : `${def.group} / MARKAZ`;
+    const actions = overview
+        ? `<button class="icon-button overview-refresh" type="button" data-action="refresh" aria-label="Ko‘rsatkichlarni yangilash">${icon("refresh")}</button>${canWrite("leads") ? `<button class="button overview-primary" type="button" data-action="quick-lead">${icon("plus")}Yangi lid</button>` : ""}`
+        : `<button type="button" class="button secondary" data-action="export" title="Ko‘rinayotgan ro‘yxatni CSV formatida olish">${icon("download")}<span class="button-label">Eksport</span></button>${canWrite() ? `<button type="button" class="button primary" data-action="create">${icon("plus")}${esc(def.add)}</button>` : ""}`;
+    $("page-heading").innerHTML = `<div><h1>${overview ? `Salom, ${esc(state.user.first_name)}.` : esc(def.title)}</h1><p>${overview ? "Markazingizning bugungi holati. Kerakli ishlar — shu yerda." : esc(def.description)}</p></div><div class="heading-actions">${actions}</div>`;
+    $("footer-note").innerHTML = overview ? `<button type="button" class="overview-footer-exit" data-action="logout">Kirish sahifasi ${icon("arrow")}</button>` : `${esc(def.group)} / MARKAZ`;
     document.title = `${overview ? "Umumiy ko‘rinish" : def.title} · Markaz`;
 }
 async function navigate(key, reset = true) {
@@ -750,16 +759,88 @@ async function navigate(key, reset = true) {
     closeRowMenu(); SmartSelect.active?.close(); closeMobileMenu();
     if (location.hash !== `#${key}`) history.replaceState(null, "", `#${key}`);
     renderNavigation(); renderHeading(); setMessage("page-error");
+    if (key === "overview") setOverviewJump("page-heading");
     if (reset) window.scrollTo({ top: 0, behavior: "instant" });
     if (key === "overview") await loadOverview(); else { listShell(); await loadRecords(); }
 }
-function trendSVG(trend) {
-    const width = 560, height = 205, left = 30, top = 14, bottom = 174, plot = width - left - 15;
-    const max = Math.max(4, ...trend.flatMap((t) => [t.students, t.leads]));
-    const ceiling = Math.ceil(max / 4) * 4;
-    const point = (value, index) => [left + index * plot / 5, bottom - value / ceiling * (bottom - top)];
-    const line = (key) => trend.map((item, i) => point(item[key], i).join(",")).join(" ");
-    return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Oxirgi olti oydagi yangi o‘quvchilar va lidlar"><defs><linearGradient id="chart-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#b9d2a0" stop-opacity=".22"/><stop offset="100%" stop-color="#b9d2a0" stop-opacity="0"/></linearGradient></defs>${[0, 1, 2, 3, 4].map((i) => { const y = bottom - i / 4 * (bottom - top); return `<line class="chart-grid" x1="${left}" x2="${width - 15}" y1="${y}" y2="${y}"/><text x="${left - 9}" y="${y + 3}" text-anchor="end">${ceiling * i / 4}</text>`; }).join("")}<polygon points="${left},${bottom} ${line("students")} ${width - 15},${bottom}" fill="url(#chart-fill)"/><polyline points="${line("leads")}" fill="none" stroke="#9270d1" stroke-width="2" stroke-linejoin="round"/><polyline points="${line("students")}" fill="none" stroke="#74a536" stroke-width="2.4" stroke-linejoin="round"/>${trend.map((item, i) => { const [x, y] = point(item.students, i); return `<circle cx="${x}" cy="${y}" r="3" fill="#fff" stroke="#74a536" stroke-width="1.8"><title>${item.month}: ${item.students} o‘quvchi, ${item.leads} lid</title></circle><text x="${x}" y="198" text-anchor="middle">${shortMonths[Number(item.month.slice(5)) - 1]}</text>`; }).join("")}</svg>`;
+function setOverviewJump(targetId) {
+    document.querySelectorAll("[data-overview-jump]").forEach((button) => {
+        if (button.dataset.overviewJump === targetId) button.setAttribute("aria-current", "location");
+        else button.removeAttribute("aria-current");
+    });
+}
+function overviewMetrics(data) {
+    const metrics = [
+        ["O‘quvchilar", data.students, "students", `${data.active_students} nafar faol o‘quvchi`],
+        ["Guruhlar", data.groups, "groups", `${data.active_groups} ta faol guruh`],
+        ["Yangi lidlar", data.leads, "leads", "Qabul murojaatlari"],
+        ["Kurslar", data.active_courses, "courses", "Qabul uchun ochiq"],
+    ];
+    return `<section class="overview-metrics" aria-label="Markaz ko‘rsatkichlari">${metrics.map(([label, number, key, footer]) => {
+        const content = `<div class="overview-metric-label"><span>${label}</span>${icon(key)}</div><strong>${money.format(number)}</strong><p>${footer}</p>`;
+        return canRead(key) ? `<a href="#${key}" class="overview-metric">${content}</a>` : `<div class="overview-metric">${content}</div>`;
+    }).join("")}</section>`;
+}
+const overviewSeries = { students: ["Yangi o‘quvchi", "Yangi o‘quvchilar"], leads: ["Yangi lid", "Yangi lidlar"] };
+function trendBars(trend, series) {
+    const maximum = Math.max(1, ...trend.map((month) => month[series]));
+    const label = overviewSeries[series][1];
+    return `<ol class="overview-bars" aria-label="${label}, oylar bo‘yicha">${trend.map((month) => {
+        const [year, monthNumber] = month.month.split("-").map(Number), value = month[series];
+        return `<li class="overview-bar${value ? " has-value" : ""}"><span class="overview-bar-plot"><span style="--bar-height:${value / maximum * 100}%"><b>${money.format(value)}</b></span></span><time datetime="${month.month}" title="${months[monthNumber - 1]} ${year}">${shortMonths[monthNumber - 1]}</time></li>`;
+    }).join("")}</ol>`;
+}
+function overviewTrend(trend) {
+    const [fromYear, fromMonth] = trend[0].month.split("-").map(Number);
+    const [toYear, toMonth] = trend.at(-1).month.split("-").map(Number);
+    const period = `${months[fromMonth - 1]}${fromYear === toYear ? "" : ` ${fromYear}`} — ${months[toMonth - 1]} ${toYear}`;
+    return `<section id="overview-trend" class="overview-trend" aria-labelledby="trend-title" tabindex="-1">
+        <div class="overview-trend-heading"><h2 id="trend-title">O‘sish, raqamlarda.</h2><span>${period}</span></div>
+        <div class="overview-trend-body">
+            <div class="overview-trend-plot"><div id="overview-bars">${trendBars(trend, state.overviewSeries)}</div><p id="overview-chart-caption">${overviewSeries[state.overviewSeries][1]} / har oy bo‘yicha</p></div>
+            <div class="overview-series" role="group" aria-label="Grafik ko‘rsatkichi">${Object.entries(overviewSeries).map(([key, [label]]) => `<button type="button" data-overview-series="${key}" aria-controls="overview-bars" aria-pressed="${state.overviewSeries === key}"><strong>${money.format(trend.reduce((sum, month) => sum + month[key], 0)).padStart(2, "0")}</strong><span>${label}</span></button>`).join("")}</div>
+        </div>
+    </section>`;
+}
+function overviewAdmissions(data) {
+    const sources = data.sources.filter((source) => source.id != null).map((source) => ({ ...source, name: lookup("sources", source.id)?.name || "Noma’lum manba" })).sort((a, b) => b.count - a.count).slice(0, 5);
+    const success = data.statuses.filter((item) => lookup("statuses", item.id)?.is_won).reduce((sum, item) => sum + item.count, 0);
+    const recent = data.recent_leads.length
+        ? `<ul class="overview-leads">${data.recent_leads.map((lead) => `<li><div>${avatar(fullName(lead), "small")}<span><strong>${esc(fullName(lead))}</strong><small>${esc(lead.phone)}</small></span></div>${leadStatus(lead)}</li>`).join("")}</ul>`
+        : `<div class="overview-admissions-empty">${icon("leads")}<div><strong>Hozircha yangi murojaatlar yo‘q.</strong><p>Birinchi lidni qo‘shing. Yangi qabul shu yerdan boshlanadi.</p></div></div>`;
+    return `<section id="overview-admissions" class="overview-admissions" aria-labelledby="admissions-title" tabindex="-1">
+        <div class="overview-subheading"><h2 id="admissions-title">Qabul navbati</h2><span>${money.format(data.leads).padStart(2, "0")}</span></div>
+        ${recent}
+        <div class="overview-admission-actions">
+            ${canWrite("leads") ? `<button class="button overview-outline" type="button" data-action="quick-lead">${icon("plus")}Lid qo‘shish</button>` : ""}
+            ${data.recent_leads.length && canRead("leads") ? `<a href="#leads" class="overview-inline-link">Barchasi ${icon("arrow")}</a>` : ""}
+        </div>
+        <div class="overview-sources">
+            <h3>${canRead("sources") ? '<a href="#sources">Qabul manbalari</a>' : "Qabul manbalari"}</h3>
+            ${sources.length ? `<ul>${sources.map((source) => `<li>${esc(source.name)} <b>${money.format(source.count)}</b></li>`).join("")}</ul>` : ""}
+            <p>${sources.length ? "" : "Manbasi ko‘rsatilgan lidlar hali yo‘q. "}Muvaffaqiyatli qabul: ${money.format(success)}.</p>
+        </div>
+    </section>`;
+}
+function overviewOccupancy(data) {
+    const open = Math.max(0, data.seats - data.occupied), ratio = data.seats ? data.occupied / data.seats : 0;
+    const title = !data.seats ? "Guruhlar sig‘imi" : open ? "O‘sish uchun joy bor." : "Guruhlar to‘lgan.";
+    return `<section class="overview-occupancy" aria-labelledby="occupancy-title">
+        <h2 id="occupancy-title">${title}</h2>
+        <div class="overview-seat-count"><strong>${money.format(data.occupied)}<span>/</span>${money.format(data.seats)}</strong><span>o‘rin band · ${Math.round(ratio * 100)}%</span></div>
+        <div class="overview-seat-meter" aria-hidden="true">${Array.from({ length: 15 }, (_, index) => `<i style="--seat-fill:${Math.max(0, Math.min(1, ratio * 15 - index)) * 100}%"></i>`).join("")}</div>
+        <p>${data.seats ? `${money.format(open)} ta bo‘sh o‘rin · faol va rejalashtirilgan guruhlar` : "Faol yoki rejalashtirilgan guruhlar hali yo‘q."}</p>
+        ${canRead("groups") ? `<a href="#groups" class="overview-inline-link">Guruhlarni ko‘rish ${icon("arrow")}</a>` : ""}
+    </section>`;
+}
+function overviewActions() {
+    const keys = ["students", "groups", "leads", "courses"].filter((key) => canRead(key) && canWrite(key));
+    if (!keys.length) return "";
+    const steps = setupSteps(), completed = steps.filter(([, , done]) => done).length;
+    return `<section class="overview-actions" aria-labelledby="overview-actions-title"><h2 id="overview-actions-title">Ishni davom ettiring</h2>
+        <div class="overview-quick-actions">${keys.map((key) => `<button type="button" class="button overview-outline" data-quick-create="${key}">${icon(moduleDefinitions[key].icon)}${esc(moduleDefinitions[key].add)}</button>`).join("")}</div>
+        ${hasRole("boss", "admin") ? `<div id="overview-setup" class="overview-setup" tabindex="-1"><div><div class="overview-setup-heading"><strong>Markazni sozlash</strong><span>${completed} / ${steps.length}</span></div><div class="overview-setup-track" aria-hidden="true">${steps.map(([, , done]) => `<i class="${done ? "done" : ""}"></i>`).join("")}</div><p>${completed === steps.length ? "Ish maydoni tayyor." : "Ish maydonini tayyorlash uchun qolgan qadamlarni bajaring."}</p></div><button type="button" class="button overview-outline" data-action="open-setup">${icon("arrow")}Davom ettirish</button></div>` : ""}
+    </section>`;
 }
 async function loadOverview() {
     const request = ++state.request;
@@ -768,12 +849,12 @@ async function loadOverview() {
         const data = await api(queryPath("/workspace/overview", { branch_id: state.branch }));
         if (request !== state.request || state.view !== "overview") return;
         state.dashboard = data;
-        const metrics = [["O‘quvchilar", data.students, "students", "mint", `${data.active_students} nafar faol o‘quvchi`], ["Guruhlar", data.groups, "groups", "lilac", `${data.active_groups} ta faol guruh`], ["Yangi imkoniyatlar", data.leads, "leads", "peach", "Barcha qabul murojaatlari"], ["O‘quv yo‘nalishlari", data.active_courses, "courses", "blue", "Qabul uchun ochiq kurslar"]];
-        const sources = data.sources.map((source) => ({ ...source, name: lookup("sources", source.id)?.name || "Manbasiz murojaat" })).sort((a, b) => b.count - a.count).slice(0, 5);
-        const success = data.statuses.filter((s) => lookup("statuses", s.id)?.is_won).reduce((n, s) => n + s.count, 0);
-        const occupancy = data.seats ? Math.round(data.occupied / data.seats * 100) : 0;
-        $("page-content").innerHTML = `<section class="metric-grid" aria-label="Markaz ko‘rsatkichlari">${metrics.map(([label, number, type, tone, footer], index) => `<article class="metric-card${index === 0 ? " featured" : ""}"><div class="metric-top"><span>${label}</span><span class="metric-icon ${tone}">${icon(type)}</span></div><strong class="metric-number">${money.format(number)}</strong><div class="metric-footer">${index < 2 ? '<strong>●</strong>' : ""}${footer}</div></article>`).join("")}</section><div class="dashboard-grid"><section class="panel"><div class="panel-header"><div><h2>Yangi ro‘yxatdan o‘tishlar</h2><p>O‘quvchilar va murojaatlarning oylar bo‘yicha o‘sishi</p></div><span class="period-label">Oxirgi 6 oy</span></div><div class="chart-legend"><span><i class="legend-dot"></i>O‘quvchilar</span><span><i class="legend-dot purple"></i>Lidlar</span></div><div class="trend-chart">${trendSVG(data.trend)}</div>${!data.trend.some((p) => p.students || p.leads) ? '<p class="chart-empty">Yangi yozuvlar qo‘shilgach, o‘sish shu yerda ko‘rinadi.</p>' : ""}</section><section class="panel"><div class="panel-header"><div><h2>Qabul manbalari</h2><p>Lidlaringiz qayerdan kelmoqda?</p></div>${canRead("sources") ? `<a href="#sources" class="text-button" aria-label="Manbalarni ochish">${icon("arrow")}</a>` : ""}</div><div class="source-list">${sources.length ? sources.map((source, i) => `<div class="source-row"><div class="source-row-head"><span class="source-square ${tones[i % 5]}"></span>${esc(source.name)}<b>${source.count}</b></div><div class="bar-track"><div class="bar-fill ${tones[i % 5]}" style="width:${Math.round(source.count / Math.max(1, data.leads) * 100)}%"></div></div></div>`).join("") : '<p class="empty-small">Manba ko‘rsatilgan lidlar paydo bo‘lishini kutyapmiz.</p>'}</div><div class="source-summary"><span>Muvaffaqiyatli qabul</span><strong>${success} <span style="font-size:9px;font-weight:400">ta lid</span></strong></div></section></div><div class="dashboard-grid"><section class="panel"><div class="panel-header"><div><h2>So‘nggi murojaatlar</h2><p>Markazingizga yangi qiziqish bildirganlar</p></div>${canRead("leads") ? `<a href="#leads" class="text-button">Barchasi ${icon("arrow")}</a>` : ""}</div>${data.recent_leads.length ? `<div class="table-wrap"><table aria-label="So‘nggi murojaatlar"><thead><tr><th>Ism va telefon</th><th>Kurs</th><th>Bosqich</th></tr></thead><tbody>${data.recent_leads.map((row) => `<tr><td><div class="person-cell">${avatar(fullName(row))}<span><span class="person-name">${esc(fullName(row))}</span><span class="cell-sub">${esc(row.phone)}</span></span></div></td><td>${esc(lookup("courses", row.course_id)?.name || "Aniqlanmagan")}</td><td>${leadStatus(row)}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty-small">Hozircha murojaatlar yo‘q. Yangi lid qo‘shishdan boshlang.</div>'}</section><div><section class="panel occupancy-panel"><div class="occupancy-ring"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="40" stroke="#f0dfbe"/><circle cx="50" cy="50" r="40" stroke="#c69538" stroke-dasharray="${occupancy * 2.513} 251.3"/></svg><span>${occupancy}%</span></div><div class="occupancy-copy"><h3>O‘sish uchun joy bor</h3><p>${data.occupied} / ${data.seats} o‘rin band.<br>Faol va rejalashtirilgan guruhlar.</p>${canRead("groups") ? `<a href="#groups" class="text-button">Guruhlarni ko‘rish ${icon("arrow")}</a>` : ""}</div></section><section class="panel" style="margin-top:15px"><div class="panel-header"><div><h2>Keyingi ishni boshlang</h2><p>Ko‘p ishlatiladigan amallar</p></div></div><div class="quick-actions">${["students", "groups", "leads", "courses"].filter((key) => canRead(key) && canWrite(key)).map((key) => `<button type="button" class="quick-action" data-quick-create="${key}">${icon(key)}<span>${moduleDefinitions[key].add}</span><span>↗</span></button>`).join("") || '<p class="empty-small">Bo‘limlarni chap menyudan oching.</p>'}</div></section></div></div>`;
-    } catch (error) { if (request === state.request) { setMessage("page-error", error.message); $("page-content").innerHTML = '<div class="panel empty-state"><h3>Ma’lumotlar yuklanmadi</h3><p>Serverga ulanishni tekshirib, sahifani yangilang.</p><button class="button secondary" type="button" data-action="refresh">Qayta urinish</button></div>'; } }
+        $("page-content").innerHTML = `${overviewMetrics(data)}${overviewTrend(data.trend)}<div class="overview-columns">${overviewAdmissions(data)}${overviewOccupancy(data)}</div>${overviewActions()}`;
+    } catch (error) {
+        if (request !== state.request) return;
+        setMessage("page-error", error.message);
+        $("page-content").innerHTML = '<div class="panel empty-state"><h3>Ma’lumotlar yuklanmadi</h3><p>Serverga ulanishni tekshirib, sahifani yangilang.</p><button class="button overview-outline" type="button" data-action="refresh">Qayta urinish</button></div>';
+    }
 }
 
 function rowValues(module, row = {}) {
@@ -1059,8 +1140,11 @@ function openAccount() {
     $("detail-content").innerHTML = `<div class="detail-cover"><span class="section-kicker">SIZNING ISH MAYDONINGIZ</span><button type="button" class="icon-button" data-close="detail-dialog" aria-label="Profilni yopish">${icon("close")}</button></div><div class="detail-intro">${avatar(user.name, "large")}<h2 id="detail-title">${esc(user.name)}</h2><p>${esc(user.position || "Jamoa a’zosi")}</p><div class="detail-badges">${user.is_superadmin ? protectedAdminPill() : ""}${user.roles.map((r) => `<span class="pill purple no-dot">${esc(r.name)}</span>`).join("")}</div></div><div class="detail-body"><dl class="detail-grid"><div><dt>Telefon / login</dt><dd>${esc(user.phone)}</dd></div><div><dt>Asosiy filial</dt><dd>${esc(lookup("branches", user.branch_id)?.name || "Belgilanmagan")}</dd></div><div class="full"><dt>Elektron pochta</dt><dd>${esc(user.email || "Kiritilmagan")}</dd></div></dl><div class="detail-heading">Ruxsat doirasi</div>${user.roles.map((r) => `<div class="shortcut-row"><span>${esc(r.name)}</span><span>${esc(user.is_superadmin || r.branch_id == null ? "Barcha filiallar" : lookup("branches", r.branch_id)?.name || `Filial #${r.branch_id}`)}</span></div>`).join("") || '<p class="detail-note">Sizga hali rol biriktirilmagan. Administratorga murojaat qiling.</p>'}</div><div class="detail-actions"><button class="button secondary" type="button" data-action="logout">${icon("logout")}Hisobdan chiqish</button></div>`;
     $("detail-dialog").showModal();
 }
+function setupSteps() {
+    return [["branches", "Birinchi filial", state.options.branches.length], ["courses", "O‘quv yo‘nalishlari", state.options.courses.length], ["rooms", "Dars xonalari", state.options.rooms.length], ["teachers", "O‘qituvchi profillari", state.options.employees.some((r) => r.is_teacher)], ["statuses", "Qabul bosqichlari", state.options.statuses.length]];
+}
 function openSetup() {
-    const checks = [["branches", "Birinchi filial", state.options.branches.length], ["courses", "O‘quv yo‘nalishlari", state.options.courses.length], ["rooms", "Dars xonalari", state.options.rooms.length], ["teachers", "O‘qituvchi profillari", state.options.employees.some((r) => r.is_teacher)], ["statuses", "Qabul bosqichlari", state.options.statuses.length]];
+    const checks = setupSteps();
     $("detail-content").innerHTML = `<div class="dialog-header"><div><span class="section-kicker">BIRINCHI QADAMLAR</span><h2 id="detail-title">Markazni ishga tayyorlang</h2><p>Guruhlar va qabul uchun kerakli asosiy ma’lumotlar.</p></div><button class="icon-button" data-close="detail-dialog" type="button" aria-label="Yopish">${icon("close")}</button></div><div class="detail-body">${checks.map(([key, label, done], i) => `<div class="workflow-step"><span class="workflow-number">${done ? icon("check") : String(i + 1).padStart(2, "0")}</span><span><strong>${label}</strong><small>${done ? "Ma’lumot kiritilgan" : "To‘ldirish kerak"}</small></span><button class="text-button" type="button" data-open-view="${key}" style="margin-left:auto">Ochish ${icon("arrow")}</button></div>`).join("")}</div>`;
     $("detail-dialog").showModal();
 }
@@ -1130,7 +1214,28 @@ document.addEventListener("click", async (event) => {
     const target = event.target.closest("button, a"); if (!target) return;
     try {
         if (target.dataset.close) { $(target.dataset.close).close(); SmartSelect.active?.close(); return; }
-        if (target.matches("a.nav-link")) closeMobileMenu();
+        if (target.dataset.overviewJump) {
+            const section = $(target.dataset.overviewJump);
+            if (!section) return;
+            setOverviewJump(section.id);
+            if (section.id === "page-heading") window.scrollTo(0, 0);
+            else { section.scrollIntoView({ block: "start" }); section.focus({ preventScroll: true }); }
+            return;
+        }
+        if (target.dataset.overviewSeries && state.view === "overview") {
+            state.overviewSeries = target.dataset.overviewSeries;
+            $("overview-bars").innerHTML = trendBars(state.dashboard.trend, state.overviewSeries);
+            $("overview-chart-caption").textContent = `${overviewSeries[state.overviewSeries][1]} / har oy bo‘yicha`;
+            document.querySelectorAll("[data-overview-series]").forEach((button) => button.setAttribute("aria-pressed", String(button === target)));
+            return;
+        }
+        if (target.matches("a.nav-link")) {
+            closeMobileMenu();
+            if (state.view === "overview" && target.hash === "#overview") {
+                setOverviewJump("page-heading");
+                window.scrollTo(0, 0);
+            }
+        }
         if (target.dataset.openView) { document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close()); await navigate(target.dataset.openView); return; }
         if (target.dataset.quickCreate) return openEditor(target.dataset.quickCreate);
         if (target.dataset.useEndDate) { const input = $("edit-end_date"); input.value = target.dataset.useEndDate; input.dispatchEvent(new Event("change", { bubbles: true })); SmartDate.instances.get(input)?.button.focus(); return; }
@@ -1164,12 +1269,13 @@ document.addEventListener("click", async (event) => {
         const action = target.dataset.action;
         if (action === "create") await openEditor();
         if (action === "quick-lead") await openEditor("leads");
+        if (action === "open-setup") openSetup();
         if (action === "generate-sessions") await openGenerateSessions();
         if (action === "refresh") { await refreshOptions(); await refreshCurrent(); }
         if (action === "clear-filters") { state.filters = {}; state.page = 1; state.selected.clear(); listShell(); await loadRecords(); }
         if (action === "clear-selection") { state.selected.clear(); renderRecords(); }
         if (action === "export" || action === "export-selected") exportRows(action === "export-selected");
-        if (action === "logout") { closeMobileMenu(); showLogin(); }
+        if (action === "logout") { closeMobileMenu(); showLogin(); window.scrollTo(0, 0); }
     } catch (error) { toast(error.message, true); }
 });
 document.addEventListener("dragstart", (event) => {
@@ -1196,6 +1302,7 @@ $("command-input").addEventListener("keydown", (event) => {
 $("command-results").addEventListener("keydown", (event) => { const buttons = [...$("command-results").querySelectorAll("button")], index = buttons.indexOf(document.activeElement); if (["ArrowDown", "ArrowUp"].includes(event.key) && buttons.length) { event.preventDefault(); buttons[(index + (event.key === "ArrowDown" ? 1 : buttons.length - 1)) % buttons.length].focus(); } });
 $("command-button").addEventListener("click", openCommand);
 $("account-button").addEventListener("click", openAccount);
+$("top-account").addEventListener("click", openAccount);
 $("setup-button").addEventListener("click", openSetup);
 $("shortcuts-button").addEventListener("click", openShortcuts);
 $("workspace-switch").addEventListener("click", () => { closeMobileMenu(); SmartSelect.instances.get($("context-branch"))?.open(); });
