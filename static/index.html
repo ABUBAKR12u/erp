@@ -11,17 +11,40 @@
     <script src="/static/script.js" defer></script>
 </head>
 <body>
-    <a class="skip-link" href="#main-content">Asosiy mazmunga o‘tish</a>
-    <section id="login-view" class="login-layout">
-        <div class="login-story">
-            <a class="wordmark" href="/"><span class="brand-symbol"><i></i><i></i><i></i></span>markaz<span class="wordmark-period">.</span></a>
-            <div class="login-editorial"><span class="overline">TA’LIM ORTIDAGI TARTIB</span><h1>Katta maqsadlar.<br>Aniq boshqaruv.</h1><p>Odamlar, guruhlar va imkoniyatlarni<br>bir maydonda birlashtiring.</p></div>
-            <div class="login-art" aria-hidden="true"><div class="art-orbit"></div><div class="art-sheet"><span>MARKAZNING YANGI KUNI</span><div class="art-row"><i class="art-square mint"></i><b>O‘quvchilar</b><em>01</em></div><div class="art-row"><i class="art-square lilac"></i><b>Guruhlar</b><em>02</em></div><div class="art-row"><i class="art-square peach"></i><b>Imkoniyatlar</b><em>03</em></div></div><div class="art-note">Har bir ism ortida<br>bir kelajak bor.<span>↗</span></div><div class="art-badge">O‘SISH UCHUN JOY</div></div>
-            <div class="story-footer"><span>O‘quv markazlari uchun ERP / CRM</span><span>Bir jamoa. Bir maydon.</span></div>
+    <section id="login-view" class="login-layout" aria-labelledby="login-title">
+        <header class="login-header">
+            <a class="login-wordmark" href="/" aria-label="Markaz bosh sahifasi">markaz</a>
+            <div class="login-edition"><span>TA’LIM BOSHQARUVI</span><p>Sizning ish maydoningiz</p></div>
+        </header>
+        <div class="login-content">
+            <div class="login-intro">
+                <span class="login-eyebrow"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="10" width="12" height="11" rx="2"/><path d="M9 10V7a3 3 0 0 1 6 0v3m-3 4v3"/></svg> SHAXSIY ISH MAYDONI</span>
+                <h1 id="login-title">Hammasi bir markazda.</h1>
+                <p>Ta’limni boshqarish uchun yagona ish maydoni.</p>
+            </div>
+            <div class="login-form-wrap">
+                <form id="login-form">
+                    <div class="field">
+                        <label for="login-phone">Telefon raqami</label>
+                        <input id="login-phone" name="username" type="tel" autocomplete="username" placeholder="+998 90 000 00 00" required>
+                    </div>
+                    <div class="field">
+                        <label for="login-password">Parol</label>
+                        <div class="password-wrap">
+                            <input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Parolingizni kiriting" required>
+                            <button id="toggle-password" type="button" aria-label="Parolni ko‘rsatish" aria-controls="login-password">Ko‘rsatish</button>
+                        </div>
+                    </div>
+                    <p id="login-error" class="error-box" role="alert" hidden></p>
+                    <button class="login-submit" type="submit">Tizimga kirish</button>
+                </form>
+                <div class="login-help"><p>Hisobingiz yo‘qmi?</p><strong>Markaz administratoriga murojaat qiling.</strong></div>
+            </div>
         </div>
-        <div class="login-side"><span class="login-edition">MARKAZ WORKSPACE</span><div class="login-form-wrap"><span class="section-kicker">XUSH KELIBSIZ</span><h2>Hisobingizga kiring</h2><p>Ishingizni qolgan joyidan davom ettiring.</p><form id="login-form"><div class="field"><label for="login-phone">Telefon raqami</label><input id="login-phone" name="username" type="tel" autocomplete="username" placeholder="+998 90 123 45 67" required></div><div class="field"><label for="login-password">Parol</label><div class="password-wrap"><input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Parolingiz" required><button id="toggle-password" class="icon-button" type="button" aria-label="Parolni ko‘rsatish"></button></div></div><p id="login-error" class="error-box" role="alert" hidden></p><button class="button primary login-submit" type="submit">Tizimga kirish <span>↗</span></button></form><div class="login-help"><span class="small-mark">m.</span><p>Hisobingiz yo‘qmi?<br><strong>Markaz administratoriga murojaat qiling.</strong></p></div></div><div class="login-side-footer">Ta’limga e’tibor. Boshqaruvga aniqlik.</div></div>
+        <footer class="login-footer"><span>© <span id="login-year">2026</span> Markaz</span><span>Kamroq murakkablik. Ko‘proq imkoniyat.</span></footer>
     </section>
     <div id="app-view" class="app-layout" hidden>
+        <a class="skip-link" href="#main-content">Asosiy mazmunga o‘tish</a>
         <div id="sidebar-shade" class="sidebar-shade" hidden></div>
         <aside id="sidebar" class="sidebar">
             <button id="sidebar-close" class="icon-button sidebar-close mobile-only" type="button" aria-label="Yon menyuni yopish"></button>

@@ -1078,6 +1078,7 @@ function openCommand() { if ($("editor-dialog").open || $("confirm-dialog").open
 async function startApp() {
     await refreshOptions();
     $("login-view").hidden = true; $("app-view").hidden = false; $("login-password").value = "";
+    setPasswordVisible(false);
     await navigate(location.hash.slice(1) || "overview");
 }
 async function refreshCurrent() { if (state.view === "overview") await loadOverview(); else await loadRecords(); }
@@ -1202,11 +1203,17 @@ $("mobile-menu").addEventListener("click", () => { const open = $("sidebar").cla
 $("sidebar-shade").addEventListener("click", closeMobileMenu);
 $("sidebar-close").innerHTML = icon("close");
 $("sidebar-close").addEventListener("click", () => { closeMobileMenu(); $("mobile-menu").focus(); });
-$("toggle-password").innerHTML = icon("eye");
-$("toggle-password").addEventListener("click", () => { const input = $("login-password"), show = input.type === "password"; input.type = show ? "text" : "password"; $("toggle-password").setAttribute("aria-label", show ? "Parolni yashirish" : "Parolni ko‘rsatish"); $("toggle-password").setAttribute("aria-pressed", String(show)); });
+function setPasswordVisible(visible) {
+    const button = $("toggle-password");
+    $("login-password").type = visible ? "text" : "password";
+    button.textContent = visible ? "Yashirish" : "Ko‘rsatish";
+    button.setAttribute("aria-label", visible ? "Parolni yashirish" : "Parolni ko‘rsatish");
+}
+$("toggle-password").addEventListener("click", () => setPasswordVisible($("login-password").type === "password"));
 $("mobile-menu").innerHTML = icon("menu"); $("command-icon").innerHTML = icon("search"); $("palette-search-icon").innerHTML = icon("search");
 document.querySelectorAll(".close-dialog").forEach((button) => { button.innerHTML = icon("close"); });
 const today = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "numeric", year: "numeric", timeZone: "Asia/Tashkent" }).formatToParts(new Date()).map((part) => [part.type, part.value]));
+$("login-year").textContent = today.year;
 $("today").textContent = `${Number(today.day)} ${months[Number(today.month) - 1]} ${today.year}`;
 window.addEventListener("hashchange", () => { if (state.user && !$("app-view").hidden) navigate(location.hash.slice(1)); });
 enhanceSelects();
