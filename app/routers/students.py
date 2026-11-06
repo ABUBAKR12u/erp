@@ -8,10 +8,30 @@ from app.database.Base import MyDb
 from datetime import date
 from app.model.branches import Branch
 from app.model.students import Student, StudentStatus
+from app.model.enrollments import Enrollment, OPEN_ENROLLMENTS
+from app.utils.timetable import lock_timetable
 from app.scheme.students import StudentAdd, StudentResponse, StudentUpdate, StudentStatusUpdate
 from app.utils.checker import check_ident
 
 router = APIRouter(tags=["Students"] , prefix="/students")
+
+
+async def check_memberships(db, obj, changes):
+    if (changes.get("branch_id", obj.branch_id) != obj.branch_id or
+            changes.get("status", obj.status) in (StudentStatus.ketgan, StudentStatus.bitirgan)):
+        member = await db.scalar(select(Enrollment.id).where(
+            Enrollment.student_id == obj.id, Enrollment.status.in_(OPEN_ENROLLMENTS)
+        ).with_for_update().limit(1))
+        if member is not None:
+            raise HTTPException(409, "Avval o'quvchining guruhlardagi ochiq a'zoliklarini yakunlang")
+
+
+async def locked_student(db, student_id):
+    await lock_timetable(db)
+    obj = await db.scalar(select(Student).where(Student.id == student_id).with_for_update().execution_options(populate_existing=True))
+    if obj is None:
+        raise HTTPException(404, "Student not found")
+    return obj
 
 
 @router.post("/")
@@ -93,10 +113,9 @@ async def get_students(
 
 @router.put("/{student_id}")
 async def update_student(student_id: int, student: StudentUpdate, db: MyDb):
-    obj = await db.get(Student, student_id)
-    if not obj:
-        raise HTTPException(404, "Student not found")
+    obj = await locked_student(db, student_id)
     update_data = student.model_dump(exclude_unset=True)
+    await check_memberships(db, obj, update_data)
     if "branch_id" in update_data:
         await check_ident(db, Branch, update_data["branch_id"])
 
@@ -117,9 +136,8 @@ async def update_student(student_id: int, student: StudentUpdate, db: MyDb):
 
 @router.patch("/{student_id}/status")
 async def update_student_status(student_id: int, payload: StudentStatusUpdate, db: MyDb):
-    obj = await db.get(Student, student_id)
-    if not obj:
-        raise HTTPException(404, "Student not found")
+    obj = await locked_student(db, student_id)
+    await check_memberships(db, obj, {"status": payload.status})
 
     obj.status = payload.status
     await db.commit()
@@ -128,9 +146,8 @@ async def update_student_status(student_id: int, payload: StudentStatusUpdate, d
 
 @router.delete("/{student_id}")
 async def delete_student(student_id: int, db: MyDb):
-    obj = await db.get(Student, student_id)
-    if not obj:
-        raise HTTPException(404, "Student not found")
+    obj = await locked_student(db, student_id)
+    await check_memberships(db, obj, {"status": StudentStatus.ketgan})
 
     obj.status = StudentStatus.ketgan
     await db.commit()

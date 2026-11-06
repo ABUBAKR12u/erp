@@ -1097,3 +1097,31 @@ input:not([type=checkbox]), textarea, .select-trigger { font-size: 14px; }
     .workflow-step > .pill { grid-column: 2; grid-row: 2; margin-left: 0; justify-self: start; }
     .workflow-step > .row-actions { grid-column: 3; grid-row: 1 / 3; flex-direction: column; }
 }
+.roster-overview { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 24px 28px; background: #24204b; color: #fff; border-top: 4px solid #a58bff; }
+.roster-caption { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.roster-symbol { display: grid; place-items: center; flex: 0 0 52px; height: 58px; background: #b6f178; color: #24204b; border-radius: 16px 16px 4px 16px; transform: rotate(-5deg); }
+.roster-symbol svg { width: 27px; height: 27px; transform: rotate(5deg); }
+.roster-caption > div > span { color: #c6bcf0; font-size: 10px; font-weight: 800; letter-spacing: .12em; }
+.roster-caption h2 { color: #fff; margin: 5px 0; font-size: 22px; letter-spacing: -.6px; overflow-wrap: anywhere; }
+.roster-caption p { color: #d4cfe8; margin: 0; font-size: 13px; line-height: 1.5; }
+.roster-totals { display: flex; gap: 32px; flex-shrink: 0; }
+.roster-totals > div { display: grid; gap: 4px; }
+.roster-totals > div + div { border-left: 1px solid #61597d; padding-left: 28px; }
+.roster-totals strong { font-size: 32px; line-height: 1.2; font-variant-numeric: tabular-nums; color: #b6f178; }
+.roster-totals small { color: #d4cfe8; font-size: 17px; font-weight: 500; }
+.roster-totals span { color: #eeeaf9; font-size: 12px; }
+.roster-group-mark { display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px; border-radius: 7px; font-size: 13px; font-weight: 750; background: #eee6ff; color: #6130af; }
+.roster-group-mark svg { width: 15px; height: 15px; }
+.roster-group-mark.tone-1 { background: #d8f5ee; color: #076557; }
+.roster-group-mark.tone-2 { background: #ffe6da; color: #a33b0f; }
+.roster-group-mark.tone-3 { background: #ddeaff; color: #174bb8; }
+.roster-group-mark.tone-4 { background: #ffe1ec; color: #a31b53; }
+.roster-price { font-variant-numeric: tabular-nums; font-size: 15px; }
+@media (max-width: 700px) {
+    .roster-overview { flex-direction: column; align-items: stretch; padding: 20px; gap: 20px; }
+    .roster-caption h2 { font-size: 21px; }
+    .roster-totals { border-top: 1px solid #61597d; padding-top: 16px; gap: 24px; }
+    .roster-totals > div { flex: 1; }
+    .roster-totals > div + div { padding-left: 20px; }
+    .roster-totals strong { font-size: 29px; }
+}

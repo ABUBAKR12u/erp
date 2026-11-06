@@ -11,6 +11,7 @@ from app.model.branches import Branch
 from app.model.courses import Course
 from app.model.employees import Employees
 from app.model.groups import Group, GroupStatus
+from app.model.enrollments import Enrollment
 from app.model.rooms import Room
 from app.model.teacher_profiles import TeacherProfiles
 from app.scheme.groups import GroupAdd, GroupUpdate, GroupResponse, GroupStatusUpdate, GroupOptions
@@ -59,8 +60,8 @@ async def validate_group(db, data, current_user, group_id=None, current_students
         raise HTTPException(400, "O'quvchilar chegarasi xona sig'imidan oshmasligi kerak")
     if data.max_students < current_students:
         raise HTTPException(400, "Chegara hozirgi o'quvchilar sonidan kam bo'la olmaydi")
-    if data.status == GroupStatus.bekor_qilingan and current_students:
-        raise HTTPException(409, "Avval guruhdagi o'quvchilarni boshqa guruhga o'tkazing")
+    if data.status in (GroupStatus.bekor_qilingan, GroupStatus.tugagan) and current_students:
+        raise HTTPException(409, "Avval guruhdagi ochiq a'zoliklarni yakunlang")
 
     if data.status in (GroupStatus.rejalashtirilgan, GroupStatus.faol):
         if not profile:
@@ -188,6 +189,11 @@ async def update_group(group_id: int, group: GroupUpdate, db: MyDb, current_user
         data = GroupAdd(**data)
     except ValidationError as exc:
         raise HTTPException(422, jsonable_encoder(exc.errors(include_context=False)))
+    history = select(Enrollment.id).where(Enrollment.group_id == obj.id)
+    if (data.branch_id != obj.branch_id or data.course_id != obj.course_id) and await db.scalar(history.limit(1).with_for_update()) is not None:
+        raise HTTPException(409, "A'zolik tarixi bor guruhning filiali va kursini o'zgartirib bo'lmaydi")
+    if data.end_date and await db.scalar(history.where(Enrollment.joined_at > data.end_date).limit(1).with_for_update()) is not None:
+        raise HTTPException(409, "Guruh tugash sanasi a'zo qo'shilgan sanadan oldin bo'la olmaydi")
     await validate_group(db, data, current_user, group_id, obj.current_students)
     await validate_group_timetable(db, obj, data)
     for field, value in data.model_dump().items():

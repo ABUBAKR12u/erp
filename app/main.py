@@ -19,6 +19,7 @@ from app.routers.groups import router as groups_router
 from app.routers.workspace import router as workspace_router
 from app.routers.group_schedules import router as schedules_router
 from app.routers.lesson_sessions import router as sessions_router
+from app.routers.enrollments import router as enrollments_router
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from app.utils.rate_limiting import limiter_by_user_id
@@ -63,6 +64,7 @@ app.include_router(groups_router)
 app.include_router(workspace_router)
 app.include_router(schedules_router)
 app.include_router(sessions_router)
+app.include_router(enrollments_router)
 add_pagination(app)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

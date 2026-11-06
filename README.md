@@ -14,7 +14,7 @@ Mavjud xodim hisobi bilan kiring. Menyu va amallar xodim roliga qarab ko'rsatila
 
 ## Web interfeys
 
-14 ta mavjud jadval uchun ishlaydigan bo'limlar bor: lidlar, o'quvchilar, guruhlar, haftalik jadval, darslar, kurslar, xodimlar, o'qituvchi profillari, filiallar, xonalar, qabul manbalari, qabul bosqichlari, rollar va xodim rollari. Bosh sahifadagi ko'rsatkichlar va olti oylik diagramma bazadagi ma'lumotlardan hisoblanadi.
+15 ta mavjud jadval uchun ishlaydigan bo'limlar bor: lidlar, o'quvchilar, guruhlar, guruh a'zolari, haftalik jadval, darslar, kurslar, xodimlar, o'qituvchi profillari, filiallar, xonalar, qabul manbalari, qabul bosqichlari, rollar va xodim rollari. Bosh sahifadagi ko'rsatkichlar va olti oylik diagramma bazadagi ma'lumotlardan hisoblanadi.
 
 - Lidlar uchun Kanban va jadval; boshqa bo'limlar uchun mos kartochka va jadval ko'rinishlari.
 - Qidiruvli, klaviatura bilan boshqariladigan selectlar, bog'liq filial/xona/o'qituvchi tanlovlari.
@@ -91,3 +91,17 @@ Taqvim ranglari bo'yicha dizayn izlanishi: [Mykyta Kovalenko — Schedule Dashbo
 Bu testlar alohida SQLite xotira bazasida ishlaydi. Loyihaning MySQL bazasiga tegmaydi. Avvalgi testlarning `conftest.py` va `test_course.py` fayllarida MySQL test bazasi alohida sozlangan.
 
 Kiritish formatlari va sana tavsiyasini tekshirish: `node tests/test_input_formatting.cjs`.
+
+## Guruh a’zolari — enrollments
+
+`/enrollments/` o‘quvchini guruhga biriktiradi. Qo‘shish, qidiruv/filtr, ko‘rish, qisman tahrirlash, `PATCH /{id}/status` va `DELETE /{id}` mavjud. O‘chirish a’zolikni `ketgan` holatiga o‘tkazadi; tarix saqlanadi. `boss`/`admin` faqat ruxsat berilgan filiallarda ishlaydi; asosiy administrator barcha filiallarga kira oladi.
+
+- Holatlar: `faol`, `muzlatilgan`, `bitirgan`, `ketgan`. Faol va muzlatilgan a’zolik joy egallaydi; qolgan holatlar joyni bo‘shatadi. Guruhdagi son avtomatik hisoblanadi, parallel qabullar umumiy tranzaksiya qulfi bilan tekshiriladi.
+- O‘quvchi bir vaqtda bir nechta guruhda o‘qishi mumkin. Bir guruhdagi a’zolik davrlari ustma-ust kelmaydi. Yopilgan davrdan keyin yangi qabul yozuvi yaratish mumkin.
+- O‘quvchi va guruh bir filialdan tanlanadi. Tahrirlashda bu ikki bog‘lanish almashtirilmaydi; boshqa guruh uchun yangi a’zolik ochiladi.
+- `price` bo‘sh bo‘lsa guruh narxi, u ham bo‘sh bo‘lsa kurs narxi nusxalanadi. Nol narx ruxsat etilgan. Saqlangan narx keyingi guruh/kurs narxi o‘zgarishlariga bog‘liq emas. PUT’da narx yuborilmasa saqlanadi; `null` yuborilsa amaldagi guruh narxi qayta olinadi.
+- Qo‘shilgan sana kelajakda va guruh tugashidan keyin bo‘lmaydi. Rejalashtirilgan guruhga boshlanishidan oldin qabul qilish mumkin. Yopilgan a’zolikning chiqish sanasi qo‘shilgan sana bilan bugun oralig‘ida bo‘ladi.
+- Guruhni tugatish/bekor qilish yoki o‘quvchini boshqa filialga o‘tkazish, ketgan/bitirgan deb belgilashdan oldin ochiq a’zoliklar yakunlanadi. A’zolik tarixi bor guruhning filiali/kursi almashtirilmaydi.
+- UI’da **Guruh a’zolari** bo‘limi, guruh profilida **A’zolar**, o‘quvchi profilida **Guruhlardagi tarixi** va **Guruhga biriktirish** amallari mavjud. Maxsus select, kalendar, summa formati va CSV eksport ishlaydi.
+
+Migratsiya: `c92d6a850005`. Test: `python -m pytest tests/test_enrollments.py -q` (izolyatsiyalangan SQLite bazasi).

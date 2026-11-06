@@ -69,7 +69,9 @@ async def workspace_options(db: MyDb, current_user=Depends(get_current_user)):
         "students": [dict(row) for row in students], "leads": [dict(row) for row in leads],
         "groups": [{"id": g.id, "name": g.name, "branch_id": g.branch_id, "teacher_id": g.teacher_id,
                     "room_id": g.room_id, "status": g.status, "start_date": g.start_date,
-                    "end_date": g.end_date, "max_students": g.max_students} for g in groups],
+                    "end_date": g.end_date, "max_students": g.max_students,
+                    "current_students": g.current_students,
+                    "effective_price": g.price if g.price is not None else g.course.price} for g in groups],
     }
 
 
