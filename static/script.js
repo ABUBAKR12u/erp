@@ -740,6 +740,7 @@ function renderHeading() {
     document.body.classList.toggle("schedules-theme", state.view === "schedules");
     const overview = state.view === "overview", def = moduleDefinitions[state.view];
     document.body.classList.toggle("overview-theme", overview);
+    $("overview-topnav").hidden = !overview;
     $("overview-setup-link").hidden = !hasRole("boss", "admin");
     $("breadcrumb-current").textContent = overview ? "Umumiy ko‘rinish" : def.title;
     $("section-label").textContent = overview ? "BOSHQARUV MARKAZI" : def.group;
@@ -1213,7 +1214,6 @@ document.addEventListener("click", async (event) => {
     try {
         if (target.dataset.close) { $(target.dataset.close).close(); SmartSelect.active?.close(); return; }
         if (target.dataset.overviewJump) {
-            if (state.view !== "overview") await navigate("overview");
             const section = $(target.dataset.overviewJump);
             if (!section) return;
             setOverviewJump(section.id);

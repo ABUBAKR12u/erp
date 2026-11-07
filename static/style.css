@@ -1161,23 +1161,25 @@ input:not([type=checkbox]), textarea, .select-trigger { font-size: 14px; }
 #app-view .account-dots { color: #616161; }
 #app-view .sidebar-exit { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 42px; padding: 6px 8px; border: 0; background: #fff; color: #414141; text-align: left; font-size: 12px; }
 .sidebar-exit svg { width: 16px; height: 16px; }
-#app-view .topbar, #app-view .overview-topnav { background: var(--overview-ink); color: #fff; padding-inline: var(--overview-gutter); }
-#app-view .topbar { min-height: 76px; border: 0; }
-#app-view .breadcrumb-home { display: inline; color: #fff; font-size: 14px; font-weight: 750; }
+#app-view .topbar, #app-view .overview-topnav { padding-inline: var(--overview-gutter); }
+#app-view .topbar { min-height: 76px; border-bottom: 1px solid var(--overview-line); background: #fff; color: var(--overview-ink); }
+.overview-theme #app-view .topbar { background: var(--overview-ink); color: #fff; border-bottom-color: transparent; }
+#app-view .breadcrumb-home { display: inline; color: inherit; font-size: 14px; font-weight: 750; }
 #app-view .topbar-divider { display: none; }
 #app-view .breadcrumb { min-width: 0; }
 #app-view .breadcrumb-slash { display: inline; color: #777; }
-#app-view #breadcrumb-current { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ddd; font-size: 13px; }
+#app-view #breadcrumb-current { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #555; font-size: 13px; }
 .overview-theme .breadcrumb-slash, .overview-theme #breadcrumb-current { display: none !important; }
 #app-view .nav-caption { color: #777; font-size: 10px; letter-spacing: .12em; }
-#app-view .command-button { color: #ddd; padding: 6px; }
+#app-view .command-button { color: inherit; padding: 6px; }
 #app-view .command-button > span:nth-child(2), #app-view .command-button kbd { display: none; }
-#app-view .topbar #shortcuts-button { border-color: #666; color: #ddd; }
-#app-view .topbar button:hover { background: #2c2c2c; color: #fff; }
-#app-view .topbar #mobile-menu { color: #fff; }
+#app-view .topbar #shortcuts-button { border-color: #888; color: inherit; }
+#app-view .topbar button:hover { background: #f4f4f4; color: var(--overview-ink); }
+.overview-theme #app-view .topbar button:hover { background: #2c2c2c; color: #fff; }
+#app-view .topbar #mobile-menu { color: inherit; }
 #app-view #top-account-name { display: inline; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 750; }
-#app-view #top-avatar { border: 1px solid #626262; color: #fff; background: #1b1b1b; border-radius: 0; }
-#app-view .overview-topnav { display: flex; align-items: stretch; gap: clamp(16px, 2.4vw, 34px); min-height: 48px; overflow-x: auto; }
+#app-view #top-avatar { border: 1px solid #888; color: inherit; background: transparent; border-radius: 0; }
+#app-view .overview-topnav { display: flex; align-items: stretch; gap: clamp(16px, 2.4vw, 34px); min-height: 48px; overflow-x: auto; background: var(--overview-ink); color: #fff; }
 .overview-topnav button { flex: 0 0 auto; padding: 0 0 9px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #c4c4c4; font-size: 13px; white-space: nowrap; }
 .overview-topnav button:hover, .overview-topnav button[aria-current] { color: #fff; }
 .overview-topnav button[aria-current] { border-bottom-color: #fff; font-weight: 750; }
