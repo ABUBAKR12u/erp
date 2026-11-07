@@ -731,11 +731,9 @@ function renderNavigation() {
     const link = (key) => `<a class="nav-link ${state.view === key ? "active" : ""}" href="#${key}" ${state.view === key ? 'aria-current="page"' : ""}>${icon(key === "overview" ? "dashboard" : moduleDefinitions[key].icon)}<span>${key === "overview" ? "Umumiy ko‘rinish" : moduleDefinitions[key].title}</span>${key === "leads" ? '<span class="nav-tag">CRM</span>' : ""}</a>`;
     const groups = sections.map(([caption, keys]) => [caption, keys.filter(canRead)]);
     const renderGroup = ([caption, keys]) => keys.length ? `<div class="nav-section"><div class="nav-caption">${caption}</div>${keys.map(link).join("")}</div>` : "";
-    if (state.view === "overview") {
-        const more = groups.slice(2).map(renderGroup).join("");
-        const expanded = $("navigation").querySelector(".overview-nav-more")?.open;
-        $("navigation").innerHTML = groups.slice(0, 2).flatMap(([, keys]) => keys).map(link).join("") + (more ? `<details class="overview-nav-more" ${expanded ? "open" : ""}><summary>${icon("roles")}<span>Sozlash</span>${icon("chevron")}</summary>${more}</details>` : "");
-    } else $("navigation").innerHTML = groups.map(renderGroup).join("");
+    const navigation = $("navigation"), scrollTop = navigation.scrollTop;
+    navigation.innerHTML = groups.map(renderGroup).join("");
+    navigation.scrollTop = scrollTop;
 }
 function renderHeading() {
     document.body.classList.toggle("sessions-theme", state.view === "sessions");
@@ -759,7 +757,7 @@ async function navigate(key, reset = true) {
     closeRowMenu(); SmartSelect.active?.close(); closeMobileMenu();
     if (location.hash !== `#${key}`) history.replaceState(null, "", `#${key}`);
     renderNavigation(); renderHeading(); setMessage("page-error");
-    if (key === "overview") setOverviewJump("page-heading");
+    setOverviewJump(key === "overview" ? "page-heading" : null);
     if (reset) window.scrollTo({ top: 0, behavior: "instant" });
     if (key === "overview") await loadOverview(); else { listShell(); await loadRecords(); }
 }
@@ -1215,6 +1213,7 @@ document.addEventListener("click", async (event) => {
     try {
         if (target.dataset.close) { $(target.dataset.close).close(); SmartSelect.active?.close(); return; }
         if (target.dataset.overviewJump) {
+            if (state.view !== "overview") await navigate("overview");
             const section = $(target.dataset.overviewJump);
             if (!section) return;
             setOverviewJump(section.id);

@@ -1128,65 +1128,62 @@ input:not([type=checkbox]), textarea, .select-trigger { font-size: 14px; }
     .roster-totals strong { font-size: 29px; }
 }
 
-/* Umumiy ko‘rinish */
-.overview-only { display: none; }
+/* Barcha bo‘limlar uchun menyu va yuqori panel */
 .top-account { display: inline-flex; align-items: center; gap: 12px; padding: 0; border: 0; background: transparent; color: inherit; }
-.overview-theme #app-view {
+#app-view {
     --overview-ink: #121212;
     --overview-muted: #616161;
     --overview-line: #e5e5e5;
     --overview-gutter: clamp(22px, 2.8vw, 54px);
-    background: #fff;
-    color: var(--overview-ink);
     scrollbar-color: #aaa transparent;
 }
-.overview-theme #app-view :focus-visible { outline-color: #6e6e6e; }
-.overview-theme .sidebar { border-color: var(--overview-line); padding: 28px 18px 18px; }
-.overview-theme .sidebar .wordmark { margin: 0 4px 27px; font-size: 34px; letter-spacing: -.075em; }
-.overview-theme .sidebar .brand-symbol, .overview-theme .sidebar .wordmark-period { display: none; }
-.overview-theme .workspace-switch { padding: 10px 8px 14px; gap: 6px; flex-direction: column; align-items: flex-start; border: 0; border-bottom: 1px solid var(--overview-line); border-radius: 0; background: #fff; margin-bottom: 18px; }
-.overview-theme .workspace-switch:hover { background: #f6f6f6; }
-.overview-theme .workspace-avatar, .overview-theme .workspace-arrow { display: none; }
-.overview-theme .workspace-switch::before { content: "ISH MAYDONI"; color: var(--overview-muted); font-size: 10px; font-weight: 750; letter-spacing: .17em; }
-.overview-theme .workspace-switch strong { font-size: 14px; }
-.overview-theme .workspace-switch small, .overview-theme #setup-button { display: none; }
-.overview-theme .nav-link, .overview-nav-more summary { min-height: 44px; border-radius: 0; color: #272727; }
-.overview-theme .nav-link svg, .overview-nav-more summary svg { color: #545454; }
-.overview-theme .nav-link:hover, .overview-nav-more summary:hover { background: #f5f5f5; }
-.overview-theme .nav-link.active { color: #fff; background: var(--overview-ink); box-shadow: none; font-weight: 700; }
-.overview-theme .nav-link.active svg { color: #fff; }
-.overview-theme .nav-tag { background: #f1f1f1; color: #424242; }
-.overview-nav-more summary { display: flex; align-items: center; gap: 10px; padding: 8px 13px; font-size: 13px; font-weight: 550; cursor: pointer; list-style: none; }
-.overview-nav-more summary::-webkit-details-marker { display: none; }
-.overview-nav-more summary svg { width: 17px; height: 17px; }
-.overview-nav-more summary svg:last-child { margin-left: auto; width: 14px; }
-.overview-nav-more[open] summary svg:last-child { transform: rotate(180deg); }
-.overview-nav-more .nav-section { margin: 12px 0 16px 9px; padding-left: 7px; border-left: 1px solid var(--overview-line); }
-.overview-nav-more .nav-caption { padding-left: 5px; color: var(--overview-muted); }
-.overview-theme .sidebar-bottom { border-top: 1px solid var(--overview-line); }
-.overview-theme .account-button { border-radius: 0; padding: 9px 8px; }
-.overview-theme .account-button:hover, .overview-theme .overview-side-exit:hover { background: #f5f5f5; }
-.overview-theme .account-button small { color: var(--overview-muted); }
-.overview-theme .account-button .avatar, .overview-leads .avatar { background: #f0f0f0; color: #323232; border-radius: 0; }
-.overview-theme .account-dots { color: #616161; }
-.overview-theme .overview-side-exit { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 42px; padding: 6px 8px; border: 0; background: #fff; color: #414141; text-align: left; font-size: 12px; }
-.overview-side-exit svg { width: 16px; height: 16px; }
-.overview-theme .topbar, .overview-theme .overview-topnav { background: var(--overview-ink); color: #fff; padding-inline: var(--overview-gutter); }
-.overview-theme .topbar { min-height: 76px; border: 0; }
-.overview-theme .breadcrumb-home { display: inline; color: #fff; font-size: 14px; font-weight: 750; }
-.overview-theme .breadcrumb-slash, .overview-theme #breadcrumb-current, .overview-theme .topbar-divider { display: none; }
-.overview-theme .command-button { color: #ddd; padding: 6px; }
-.overview-theme .command-button > span:nth-child(2), .overview-theme .command-button kbd { display: none; }
-.overview-theme .topbar #shortcuts-button { border-color: #666; color: #ddd; }
-.overview-theme .topbar button:hover { background: #2c2c2c; color: #fff; }
-.overview-theme .topbar #mobile-menu { color: #fff; }
-.overview-theme #top-account-name { display: inline; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 750; }
-.overview-theme #top-avatar { border: 1px solid #626262; color: #fff; background: #1b1b1b; border-radius: 0; }
-.overview-theme .overview-topnav { display: flex; align-items: stretch; gap: clamp(16px, 2.4vw, 34px); min-height: 48px; overflow-x: auto; }
+#app-view :focus-visible { outline-color: #6e6e6e; }
+#app-view .sidebar { border-color: var(--overview-line); padding: 28px 18px 18px; }
+#app-view .sidebar .wordmark { margin: 0 4px 27px; font-size: 34px; letter-spacing: -.075em; }
+#app-view .sidebar .brand-symbol, #app-view .sidebar .wordmark-period { display: none; }
+#app-view .workspace-switch { padding: 10px 8px 14px; gap: 6px; flex-direction: column; align-items: flex-start; border: 0; border-bottom: 1px solid var(--overview-line); border-radius: 0; background: #fff; margin-bottom: 18px; }
+#app-view .workspace-switch:hover { background: #f6f6f6; }
+#app-view .workspace-avatar, #app-view .workspace-arrow { display: none; }
+#app-view .workspace-switch::before { content: "ISH MAYDONI"; color: var(--overview-muted); font-size: 10px; font-weight: 750; letter-spacing: .17em; }
+#app-view .workspace-switch strong { font-size: 14px; }
+#app-view .workspace-switch small, #app-view #setup-button { display: none; }
+#app-view .nav-link { min-height: 44px; border-radius: 0; color: #272727; }
+#app-view .nav-link svg { color: #545454; }
+#app-view .nav-link:hover { background: #f5f5f5; }
+#app-view .nav-link.active { color: #fff; background: var(--overview-ink); box-shadow: none; font-weight: 700; }
+#app-view .nav-link.active svg { color: #fff; }
+#app-view .nav-tag { background: #f1f1f1; color: #424242; }
+#app-view .sidebar-bottom { border-top: 1px solid var(--overview-line); }
+#app-view .account-button { border-radius: 0; padding: 9px 8px; }
+#app-view .account-button:hover, #app-view .sidebar-exit:hover { background: #f5f5f5; }
+#app-view .account-button small { color: var(--overview-muted); }
+#app-view .account-button .avatar, .overview-leads .avatar { background: #f0f0f0; color: #323232; border-radius: 0; }
+#app-view .account-dots { color: #616161; }
+#app-view .sidebar-exit { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 42px; padding: 6px 8px; border: 0; background: #fff; color: #414141; text-align: left; font-size: 12px; }
+.sidebar-exit svg { width: 16px; height: 16px; }
+#app-view .topbar, #app-view .overview-topnav { background: var(--overview-ink); color: #fff; padding-inline: var(--overview-gutter); }
+#app-view .topbar { min-height: 76px; border: 0; }
+#app-view .breadcrumb-home { display: inline; color: #fff; font-size: 14px; font-weight: 750; }
+#app-view .topbar-divider { display: none; }
+#app-view .breadcrumb { min-width: 0; }
+#app-view .breadcrumb-slash { display: inline; color: #777; }
+#app-view #breadcrumb-current { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ddd; font-size: 13px; }
+.overview-theme .breadcrumb-slash, .overview-theme #breadcrumb-current { display: none !important; }
+#app-view .nav-caption { color: #777; font-size: 10px; letter-spacing: .12em; }
+#app-view .command-button { color: #ddd; padding: 6px; }
+#app-view .command-button > span:nth-child(2), #app-view .command-button kbd { display: none; }
+#app-view .topbar #shortcuts-button { border-color: #666; color: #ddd; }
+#app-view .topbar button:hover { background: #2c2c2c; color: #fff; }
+#app-view .topbar #mobile-menu { color: #fff; }
+#app-view #top-account-name { display: inline; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 750; }
+#app-view #top-avatar { border: 1px solid #626262; color: #fff; background: #1b1b1b; border-radius: 0; }
+#app-view .overview-topnav { display: flex; align-items: stretch; gap: clamp(16px, 2.4vw, 34px); min-height: 48px; overflow-x: auto; }
 .overview-topnav button { flex: 0 0 auto; padding: 0 0 9px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #c4c4c4; font-size: 13px; white-space: nowrap; }
 .overview-topnav button:hover, .overview-topnav button[aria-current] { color: #fff; }
 .overview-topnav button[aria-current] { border-bottom-color: #fff; font-weight: 750; }
 .overview-topnav button:focus-visible { outline-offset: -3px; }
+/* Umumiy ko‘rinish */
+.overview-theme #app-view { background: #fff; color: var(--overview-ink); }
 .overview-theme main { padding: clamp(24px, 3.4vw, 50px) var(--overview-gutter) 0; }
 .overview-theme .page-topline { min-height: 24px; margin-bottom: 8px; }
 .overview-theme #section-label { display: none; }
@@ -1286,16 +1283,19 @@ a.overview-metric:hover { background: #f8f8f8; }
     .overview-metric-label svg { display: none; }
 }
 @media (max-width: 760px) {
-    .overview-theme .topbar { min-height: 60px; }
-    .overview-theme .overview-topnav { min-height: 43px; }
+    #app-view .topbar { min-height: 60px; }
+    #app-view .overview-topnav { min-height: 43px; }
     .overview-topnav button { font-size: 12px; }
     .overview-theme .page-heading { gap: 16px; margin-bottom: 23px; }
     .overview-theme .overview-refresh { width: 36px; height: 36px; }
-    .overview-theme #top-account-name { display: none; }
+    #app-view #top-account-name { display: none; }
+    #app-view .breadcrumb-home { display: none; }
+    #app-view .breadcrumb-slash { display: none; }
+    .overview-theme #app-view .breadcrumb-home { display: inline; }
 }
 @media (max-width: 560px) {
-    .overview-theme #app-view { --overview-gutter: 17px; }
-    .overview-theme .topbar-actions { gap: 7px; }
+    #app-view { --overview-gutter: 17px; }
+    #app-view .topbar-actions { gap: 7px; }
     .overview-theme .context-controls { flex-wrap: wrap; gap: 5px; }
     .overview-theme .context-controls time, .overview-theme .context-controls .select-trigger { font-size: 10px; letter-spacing: .07em; }
     .overview-theme .context-controls .smart-select { max-width: 145px; }
