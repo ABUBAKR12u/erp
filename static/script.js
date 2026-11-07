@@ -885,6 +885,11 @@ async function openEditor(module = state.view, row = null, prefill = {}, afterLe
     if (!row && values.branch_id == null && state.branch) values.branch_id = Number(state.branch);
     if (!row && values.branch_id == null && state.options.branches.length === 1 && fields.some((f) => f.key === "branch_id" && f.required)) values.branch_id = state.options.branches[0].id;
     state.editor = { module, row, fields, values, afterLead };
+    $("editor-dialog").classList.remove("lead-wizard");
+    $("lead-wizard-progress")?.remove();
+    $("editor-step-count").hidden = true;
+    $("editor-cancel").textContent = "Yopish";
+    $("editor-cancel").dataset.close = "editor-dialog";
     $("detail-dialog").close(); $("confirm-dialog").close(); closeRowMenu();
     $("editor-kicker").textContent = def.group;
     $("editor-title").textContent = row ? `${def.singular}ni tahrirlash` : def.add;
@@ -912,10 +917,109 @@ async function openEditor(module = state.view, row = null, prefill = {}, afterLe
     enhanceSelects($("editor-fields")); updateEditorHints();
     setMessage("editor-error"); $("editor-save").disabled = false;
     $("editor-save").innerHTML = `${row ? "O‘zgarishlarni saqlash" : "Saqlash"} <span>↗</span>`;
+    if (module === "leads" && !row) setupLeadWizard();
     $("editor-dialog").showModal();
+}
+const leadWizardSteps = [
+    { label: "Kontakt", title: "Avval tanishib olamiz.", description: "Lid bilan bog‘lanish uchun ism va telefon raqamini kiriting.", fields: ["phone", "first_name", "last_name"] },
+    { label: "Qiziqish", title: "Yo‘nalishni tanlaymiz.", description: "Qiziqqan kursi, filial va murojaat manbasini belgilang.", fields: ["course_id", "branch_id", "source_id"] },
+    { label: "Yakunlash", title: "Oxirgi tafsilotlar.", description: "Qabul bosqichi, mas’ul va suhbat izohini belgilang.", fields: ["status_id", "assigned_to", "comment", "lost_reason"] },
+];
+function normalizeLeadPhone(value) {
+    const compact = value.trim().replace(/[\s()\-]/g, "");
+    if (/^\+\d{7,15}$/.test(compact)) return compact;
+    if (/^\d{9}$/.test(compact)) return `+998${compact}`;
+    if (/^998\d{9}$/.test(compact)) return `+${compact}`;
+    return null;
+}
+function setupLeadWizard() {
+    const root = $("editor-fields"), controls = {};
+    for (const field of state.editor.fields) if (field.key) controls[field.key] = $(`edit-${field.key}`).closest(".field");
+    root.querySelectorAll(".form-section").forEach((node) => node.remove());
+    $("editor-dialog").classList.add("lead-wizard");
+    $("editor-kicker").textContent = "CRM / QABUL";
+    const progress = document.createElement("ol");
+    progress.id = "lead-wizard-progress"; progress.className = "lead-wizard-progress"; progress.setAttribute("aria-label", "Lid qo‘shish bosqichlari");
+    progress.innerHTML = leadWizardSteps.map((step, index) => `<li><button type="button" data-lead-step="${index}"><span>${String(index + 1).padStart(2, "0")}</span>${step.label}</button></li>`).join("");
+    $("editor-form").querySelector(".dialog-header").after(progress);
+
+    const intro = document.createElement("div"); intro.className = "lead-wizard-intro";
+    intro.innerHTML = '<h3 id="lead-stage-title" tabindex="-1"></h3><p id="lead-stage-description"></p>';
+    root.prepend(intro);
+    const panels = leadWizardSteps.map((step, index) => {
+        const panel = document.createElement("section"); panel.dataset.leadPanel = index; panel.className = `lead-wizard-panel lead-stage-${index}`;
+        panel.setAttribute("aria-labelledby", "lead-stage-title"); root.append(panel); return panel;
+    });
+
+    const phone = controls.phone; phone.classList.add("lead-phone-card");
+    phone.insertAdjacentHTML("afterbegin", `<div class="lead-phone-heading"><span>TELEFON <span aria-hidden="true">*</span></span>${icon("phone")}</div>`);
+    const phoneLine = document.createElement("div"); phoneLine.className = "lead-phone-line";
+    phoneLine.innerHTML = '<span id="lead-phone-prefix" aria-hidden="true">+998</span>';
+    $("edit-phone").before(phoneLine); phoneLine.append($("edit-phone"));
+    $("edit-phone").placeholder = "90 123 45 67"; $("edit-phone").maxLength = 24; $("edit-phone").autocomplete = "tel";
+    phone.insertAdjacentHTML("beforeend", '<small>9 xonali raqam yoki mamlakat kodi bilan kiriting.</small>');
+    const contact = document.createElement("div"); contact.className = "lead-contact-fields";
+    $("edit-first_name").placeholder = "Ismni kiriting"; $("edit-first_name").autocomplete = "given-name";
+    $("edit-last_name").placeholder = "Familiyani kiriting"; $("edit-last_name").autocomplete = "family-name";
+    contact.append(controls.first_name, controls.last_name);
+    contact.insertAdjacentHTML("beforeend", '<small class="lead-required-note">* Majburiy maydonlar</small>');
+    panels[0].append(phone, contact);
+
+    const courseGroup = document.createElement("div"); courseGroup.className = "lead-course-group";
+    courseGroup.innerHTML = '<div class="lead-course-heading"><span id="lead-course-label">Qiziqqan kursi</span><button type="button" class="lead-clear-course" data-lead-clear-course hidden>Tanlovni tozalash</button></div><div class="lead-course-grid" role="radiogroup" aria-labelledby="lead-course-label"></div>';
+    const courseSelect = $("edit-course_id"); controls.course_id.hidden = true;
+    const choices = [...courseSelect.options].filter((option) => option.value);
+    courseGroup.querySelector(".lead-course-grid").innerHTML = choices.length ? choices.map((option) => `<label class="lead-course-card"><input type="radio" name="lead-course-choice" aria-label="${esc(option.textContent)}" value="${esc(option.value)}" ${option.selected ? "checked" : ""}><span class="lead-course-name">${esc(option.textContent)}</span><i aria-hidden="true"></i><span class="lead-course-caption">Kursni tanlash</span></label>`).join("") : '<p class="lead-no-courses">Hozircha kurslar qo‘shilmagan. Kurs tanlamasdan davom etishingiz mumkin.</p>';
+    panels[1].append(courseGroup, controls.course_id, controls.branch_id, controls.source_id);
+    fillSelect($("edit-source_id"), sourceOptions("sources"), "Manbani tanlang", $("edit-source_id").value);
+
+    const summary = document.createElement("aside"); summary.className = "lead-summary";
+    summary.innerHTML = `<span class="lead-summary-kicker">${icon("students")}LID KARTASI</span><h4 id="lead-summary-name"></h4><p id="lead-summary-phone"></p><div class="lead-summary-divider"></div><strong id="lead-summary-course"></strong><span id="lead-summary-branch"></span>`;
+    const finalFields = document.createElement("div"); finalFields.className = "lead-final-fields";
+    finalFields.append(controls.status_id, controls.assigned_to, controls.comment, controls.lost_reason);
+    panels[2].append(summary, finalFields);
+    $("edit-comment").placeholder = "Suhbat tafsilotlari yoki muhim eslatmalar…";
+    fillSelect($("edit-assigned_to"), sourceOptions("employees"), "Biriktirilmagan", $("edit-assigned_to").value);
+    $("editor-cancel").removeAttribute("data-close");
+    showLeadStep(0, false);
+}
+function updateLeadWizard() {
+    if (state.editor?.leadStep == null) return;
+    $("lead-phone-prefix").hidden = $("edit-phone").value.trim().startsWith("+");
+    const courseId = $("edit-course_id").value;
+    document.querySelectorAll(".lead-course-card").forEach((card) => {
+        const checked = card.querySelector("input").value === courseId;
+        card.querySelector("input").checked = checked;
+        card.querySelector(".lead-course-caption").textContent = checked ? "Tanlangan" : "Kursni tanlash";
+    });
+    document.querySelector("[data-lead-clear-course]").hidden = !courseId;
+    $("lead-summary-name").textContent = [$("edit-first_name").value.trim(), $("edit-last_name").value.trim()].filter(Boolean).join(" ") || "Yangi lid";
+    const phone = normalizeLeadPhone($("edit-phone").value) || $("edit-phone").value;
+    $("lead-summary-phone").textContent = phone.replace(/^\+998(\d{2})(\d{3})(\d{2})(\d{2})$/, "+998 $1 $2 $3 $4");
+    $("lead-summary-course").textContent = lookup("courses", courseId)?.name || "Kurs belgilanmagan";
+    $("lead-summary-branch").textContent = lookup("branches", $("edit-branch_id").value)?.name || "Filial tanlanmagan";
+    $("edit-lost_reason").closest(".field").hidden = !lookup("statuses", $("edit-status_id").value)?.is_lost;
+}
+function showLeadStep(index, focus = true) {
+    SmartSelect.active?.close(); state.editor.leadStep = index;
+    document.querySelectorAll("[data-lead-panel]").forEach((panel) => { panel.hidden = Number(panel.dataset.leadPanel) !== index; });
+    document.querySelectorAll("[data-lead-step]").forEach((button) => {
+        const stepIndex = Number(button.dataset.leadStep);
+        button.disabled = stepIndex > index; button.classList.toggle("is-complete", stepIndex < index);
+        if (stepIndex === index) button.setAttribute("aria-current", "step"); else button.removeAttribute("aria-current");
+        button.querySelector("span").innerHTML = stepIndex < index ? icon("check") : String(stepIndex + 1).padStart(2, "0");
+    });
+    $("lead-stage-title").textContent = leadWizardSteps[index].title;
+    $("lead-stage-description").textContent = leadWizardSteps[index].description;
+    $("editor-step-count").hidden = false; $("editor-step-count").textContent = `${String(index + 1).padStart(2, "0")} / 03`;
+    $("editor-cancel").innerHTML = index ? `${icon("left")}Orqaga` : "Bekor qilish";
+    $("editor-save").innerHTML = index === 2 ? `Lidni saqlash ${icon("check")}` : `Davom etish ${icon("arrow")}`;
+    updateLeadWizard(); setMessage("editor-error"); $("editor-fields").scrollTop = 0;
+    if (focus) $("lead-stage-title").focus({ preventScroll: true });
 }
 function updateEditorHints(changed = "") {
     const editor = state.editor; if (!editor) return;
+    updateLeadWizard();
     if (editor.module === "enrollments") {
         const groupId = $("edit-group_id")?.value || editor.row?.group_id;
         const group = lookup("groups", groupId), student = $("edit-student_id");
@@ -965,14 +1069,20 @@ function updateEditorHints(changed = "") {
     enhanceDates($("editor-fields"));
     enhanceTimes($("editor-fields"));
 }
-function editorPayload() {
+function editorPayload(fields = state.editor.fields) {
     const payload = {};
-    for (const f of state.editor.fields) {
+    for (const f of fields) {
         if (!f.key) continue;
         const element = $(`edit-${f.key}`), required = f.required || (f.createRequired && !state.editor.row) || f.key === "status";
         SmartTime.instances.get(element)?.validate();
         const amount = MoneyInput.instances.get(element);
         let value = amount ? amount.value() : f.type === "checkbox" ? element.checked : f.type === "password" ? element.value : element.value.trim();
+        if (state.editor.leadStep != null && f.key === "phone") {
+            value = normalizeLeadPhone(value);
+            element.setAttribute("aria-invalid", String(!value));
+            if (!value) { element.focus(); throw new Error("Telefon raqamini to‘g‘ri kiriting. Masalan, 90 123 45 67 yoki +998 90 123 45 67."); }
+        }
+        if (state.editor.leadStep != null && f.key === "lost_reason" && !lookup("statuses", $("edit-status_id").value)?.is_lost) value = "";
         if (required && (value === "" || value == null)) {
             const select = SmartSelect.instances.get(element) || SmartDate.instances.get(element);
             if (select) { select.button.setAttribute("aria-invalid", "true"); select.button.focus(); }
@@ -992,6 +1102,13 @@ function recordPath(module, row) { const def = moduleDefinitions[module]; return
 async function saveEditor(event) {
     event.preventDefault(); setMessage("editor-error");
     const editor = state.editor, def = moduleDefinitions[editor.module];
+    if (editor.leadStep != null) {
+        for (let index = 0; index <= editor.leadStep; index++) {
+            try { editorPayload(editor.fields.filter((field) => leadWizardSteps[index].fields.includes(field.key))); }
+            catch (error) { showLeadStep(index, false); setMessage("editor-error", error.message); return; }
+        }
+        if (editor.leadStep < 2) { showLeadStep(editor.leadStep + 1); return; }
+    }
     let payload; try { payload = editorPayload(); } catch (error) { return setMessage("editor-error", error.message); }
     $("editor-save").disabled = true;
     try {
@@ -1192,6 +1309,9 @@ $("confirm-form").addEventListener("submit", async (event) => {
     finally { $("confirm-submit").disabled = false; }
 });
 document.addEventListener("input", (event) => {
+    if (state.editor?.leadStep != null && event.target.dataset.editorField) {
+        event.target.setAttribute("aria-invalid", "false"); updateLeadWizard();
+    }
     if (event.target.dataset.filter === "search") {
         state.filters.search = event.target.value; clearTimeout(filterTimer); filterTimer = setTimeout(applyFilters, 280);
     }
@@ -1199,6 +1319,10 @@ document.addEventListener("input", (event) => {
 });
 document.addEventListener("change", (event) => {
     const element = event.target;
+    if (element.name === "lead-course-choice" && state.editor?.leadStep != null) {
+        $("edit-course_id").value = element.value;
+        $("edit-course_id").dispatchEvent(new Event("change", { bubbles: true }));
+    }
     if (element.id === "generate-group") updateGenerateBounds();
     if (element.dataset.filter && element.dataset.filter !== "search") { state.filters[element.dataset.filter] = element.value; if (element.dataset.filter === "date_from" && state.filters.date_to && element.value > state.filters.date_to) state.filters.date_to = ""; clearTimeout(filterTimer); applyFilters(); }
     if (element.id === "context-branch") { state.branch = element.value; state.page = 1; state.selected.clear(); refreshCurrent(); }
@@ -1213,6 +1337,14 @@ document.addEventListener("click", async (event) => {
     const target = event.target.closest("button, a"); if (!target) return;
     try {
         if (target.dataset.close) { $(target.dataset.close).close(); SmartSelect.active?.close(); return; }
+        if (state.editor?.leadStep != null) {
+            if (target.id === "editor-cancel") {
+                if (state.editor.leadStep === 0) $("editor-dialog").close(); else showLeadStep(state.editor.leadStep - 1);
+                return;
+            }
+            if (target.dataset.leadStep !== undefined) { showLeadStep(Number(target.dataset.leadStep)); return; }
+            if (target.hasAttribute("data-lead-clear-course")) { $("edit-course_id").value = ""; updateLeadWizard(); return; }
+        }
         if (target.dataset.overviewJump) {
             const section = $(target.dataset.overviewJump);
             if (!section) return;

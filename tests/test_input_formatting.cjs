@@ -6,6 +6,15 @@ const vm = require("node:vm");
 const source = fs.readFileSync(path.join(__dirname, "../static/script.js"), "utf8");
 const helpers = {};
 vm.runInNewContext(source.slice(source.indexOf("function parseClock("), source.indexOf("class SmartTime")), helpers);
+vm.runInNewContext(source.slice(source.indexOf("function normalizeLeadPhone("), source.indexOf("function setupLeadWizard(")), helpers);
+
+for (const [input, expected] of [
+    ["90 123 45 67", "+998901234567"],
+    ["+998 (90) 123-45-67", "+998901234567"],
+    ["998901234567", "+998901234567"],
+    ["+1 (202) 555-0123", "+12025550123"],
+    ["", null], ["90 123", null], ["90abc4567", null], ["++998901234567", null],
+]) assert.equal(helpers.normalizeLeadPhone(input), expected);
 
 for (const [input, expected] of [["0", "00:00"], ["9", "09:00"], ["930", "09:30"], ["1430", "14:30"], ["23:59", "23:59"], ["14:3", "14:03"]]) {
     assert.equal(helpers.parseClock(input), expected);
@@ -42,4 +51,4 @@ for (const [start, months, expected] of [
     ["9999-12-01", 1, null],
 ]) assert.equal(helpers.suggestGroupEnd(start, months), expected);
 
-console.log("Time input, exact money round trips, and course end-date suggestions passed.");
+console.log("Time, money, course end-date suggestions, and lead phone formatting passed.");
